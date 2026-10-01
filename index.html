@@ -97,6 +97,11 @@ dialog{border:0;border-radius:12px;padding:24px;background:var(--panel);color:va
 dialog::backdrop{background:rgba(20,18,30,.5)}
 footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:14px}
 footer p{max-width:80ch;margin:4px 0}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:0 0 18px;padding:14px 16px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px}
+.filters label{display:grid;gap:4px;font:600 13px var(--body);color:var(--muted)}
+.filters .field{width:auto;min-width:110px;padding:8px 10px;background:var(--screen)}
+.filters select.field{min-width:170px}
+#more{padding:18px 0}
 /* industry picker */
 .region{margin:34px 0 0}
 .region h2{font-size:24px;margin-bottom:8px}
@@ -133,7 +138,7 @@ footer p{max-width:80ch;margin:4px 0}
   <header class="top">
     <a class="brand" href="#/">Pujiverse Films<small>World cinema, year by year</small></a>
     <form class="search" role="search" onsubmit="event.preventDefault();go('#/search/'+encodeURIComponent(this.q.value.trim()))">
-      <input name="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
+      <input name="q" id="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
     </form>
     <div class="acct" id="acct"></div>
   </header>
@@ -182,7 +187,8 @@ const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>
 const REGIONS = ["India","South Asia","East & Southeast Asia","Americas","Europe","Middle East & Africa","Oceania"];
 let user = null, industries = [], indBySlug = {}, cur = { ind:null, years:[] };
 const LIST_COLS = "title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us,user_rating_avg,user_rating_count";
-const local = f => f.title_local || f.title_telugu;
+const tidy = t => t ? String(t).replace(/\s*\([^)]*\)\s*$/,"").trim() : t;
+const local = f => { const l = tidy(f.title_local || f.title_telugu); return l && l !== tidy(f.title) ? l : null; };
 const realDate = d => d && !d.endsWith("-01-01");
 
 /* ---------- industries ---------- */
@@ -219,7 +225,7 @@ async function viewPicker(){
 
 /* ---------- year strip for one industry ---------- */
 async function buildStrip(slug){
-  if (cur.ind === slug) return;
+  if (cur.ind === slug && cur.years.length) return true;
   await loadIndustries();
   const ind = indBySlug[slug];
   if (!ind) { $("#view").innerHTML = `<p class="empty">That industry isn't listed. <a href="#/">Pick one</a>.</p>`; return false; }
@@ -228,8 +234,7 @@ async function buildStrip(slug){
   $("#stripSec").hidden = false;
   $("#crumbs").innerHTML = `<a href="#/">All industries</a> / ${esc(ind.region)}`;
   const total = cur.years.reduce((a,b)=>a+b.films,0);
-  const short = ind.name.replace(/ cinema$/,"");
-  $("#stripTitle").textContent = total ? `${total.toLocaleString()} ${short} films since ${cur.years[0].year}` : `${ind.name}: films loading soon`;
+  $("#stripTitle").textContent = total ? `${total.toLocaleString()} ${ind.name} films since ${cur.years[0].year}` : `${ind.name}: films loading soon`;
   $("#stripNote").textContent = `${ind.description}. Each bar is one year; pick a year to see its films.`;
   const strip = $("#strip"); strip.innerHTML = ""; if (!total) return true;
   const max = Math.max(...cur.years.map(d=>d.films)), byYear = Object.fromEntries(cur.years.map(d=>[d.year,d]));
@@ -250,22 +255,25 @@ async function buildStrip(slug){
   const sc = $("#stripScroll"); sc.scrollLeft = sc.scrollWidth;
   return true;
 }
-function markYear(y){
-  document.querySelectorAll(".yr").forEach(b => b.setAttribute("aria-current", +b.dataset.y === y ? "true" : "false"));
+function markYear(y, y2){
+  const hi = y2 ?? y;
+  document.querySelectorAll(".yr").forEach(b => b.setAttribute("aria-current", y != null && +b.dataset.y >= y && +b.dataset.y <= hi ? "true" : "false"));
   const el = document.querySelector(`.yr[data-y="${y}"]`);
   if (el) el.scrollIntoView({block:"nearest", inline:"center", behavior:"smooth"});
 }
 
 /* ---------- lists ---------- */
-function filmRow(f, showInd){
+function filmRow(f, showInd, showYear){
   const where = (f.streaming_in || f.streaming_us || "").split(", ").filter(Boolean).slice(0,3);
   const score = f.user_rating_count > 0 ? `<span class="score" title="Pujiverse users">${f.user_rating_avg}</span>` :
                 f.rating_display ? `<span class="score" title="TMDB">${(+f.rating_display).toFixed(1)}</span>` : "";
-  const meta = [realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}) : (showInd ? f.year : null), f.director, g(f.genre)].filter(Boolean).map(esc).join(" · ");
+  const when = realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined, showYear ? {year:"numeric",month:"short",day:"numeric"} : {month:"short",day:"numeric"}) : (showYear ? f.year : null);
+  const matched = f.match_field && f.match_field !== "title" ? `Matched ${f.match_field}` : null;
+  const meta = [when, f.director, g(f.genre), matched].filter(Boolean).map(esc).join(" · ");
   return `<li>
     ${f.poster_url ? `<img class="poster-sm" src="${esc(f.poster_url.replace("/w500/","/w92/"))}" alt="" loading="lazy">` : `<span class="poster-sm" aria-hidden="true"></span>`}
     <div>
-      <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(f.title)}</a>
+      <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(tidy(f.title))}</a>
       ${local(f) ? ` <span class="te">${esc(local(f))}</span>` : ""}
       ${showInd && indBySlug[f.industry] ? `<span class="ind-tag">${esc(indBySlug[f.industry].name)}</span>` : ""}
       <div class="meta">${meta}</div>
@@ -275,53 +283,115 @@ function filmRow(f, showInd){
 }
 async function viewIndustry(slug){
   if (!(await buildStrip(slug))) return; markYear(null);
-  const name = indBySlug[slug].name.replace(/ cinema$/,"");
-  let { data } = await sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug)
+  const name = indBySlug[slug].name;
+  let { data } = await sb.from("titles").select(LIST_COLS).eq("industry", slug)
     .not("streaming_in","is",null).gte("year", 2010).order("tmdb_votes",{ascending:false, nullsFirst:false}).limit(24);
   let head = `Streaming in India right now`, sub = `The most-watched recent ${name} films you can stream today.`;
   if (!data?.length) {
-    ({ data } = await sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug).not("year","is",null)
+    ({ data } = await sb.from("titles").select(LIST_COLS).eq("industry", slug).not("year","is",null)
       .order("year",{ascending:false}).order("release_date",{ascending:false, nullsFirst:false}).limit(24));
     head = `Latest ${name} films`; sub = `Where-to-watch details for this industry are still being added.`;
   }
   $("#view").innerHTML = `<h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
 }
-async function viewYear(slug, y, filter){
-  if (!(await buildStrip(slug))) return; markYear(y);
-  const name = indBySlug[slug].name.replace(/ cinema$/,""), c = cur.years.find(d=>d.year===y);
-  let q = sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug).eq("year", y);
-  if (filter === "streaming") q = q.or("streaming_in.not.is.null,streaming_us.not.is.null");
-  const { data, error } = await q.order("release_date",{ascending:true, nullsFirst:false}).order("title").limit(2000);
-  const prev = cur.years.filter(d=>d.year<y).pop(), next = cur.years.find(d=>d.year>y);
-  const base = `#/i/${slug}/year/`;
-  $("#view").innerHTML = `
-    <h2>${esc(name)} films of ${y}</h2>
-    <p class="sub">${c ? `${c.films} films · ${c.streaming} streaming now` : "No films recorded for this year."}</p>
-    <div class="row-nav">
-      ${prev ? `<a class="chip" href="${base}${prev.year}">← ${prev.year}</a>` : ""}
-      <a class="chip" href="${base}${y}" aria-pressed="${filter!=="streaming"}">All films</a>
-      <a class="chip" href="${base}${y}/streaming" aria-pressed="${filter==="streaming"}">Streaming now</a>
-      ${next ? `<a class="chip" href="${base}${next.year}">${next.year} →</a>` : ""}
-    </div>
-    ${error ? `<p class="empty">Films for ${y} didn't load. Refresh to try again.</p>` :
-      data.length ? `<ul class="films">${data.map(f=>filmRow(f)).join("")}</ul>` :
-      `<p class="empty">No films match. Switch to "All films" to see everything from ${y}.</p>`}`;
+const PAGE = 100;
+const SORTS = { date:"Release date", newest:"Newest first", title:"Title A–Z", rating:"Highest rated" };
+function parseHash(){ const [path, qs] = (location.hash || "#/").split("?"); return { path, p: new URLSearchParams(qs || "") }; }
+function hashWith(path, params){ const s = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== "" && v != null && v !== false)).toString(); return path + (s ? "?" + s : ""); }
+function orderQuery(q, sort){
+  if (sort === "title") return q.order("title");
+  if (sort === "newest") return q.order("year",{ascending:false, nullsFirst:false}).order("release_date",{ascending:false, nullsFirst:false}).order("title");
+  if (sort === "rating") return q.order("user_rating_avg",{ascending:false, nullsFirst:false}).order("rating_display",{ascending:false, nullsFirst:false}).order("tmdb_votes",{ascending:false, nullsFirst:false}).order("title");
+  return q.order("year").order("release_date",{ascending:true, nullsFirst:false}).order("title");
 }
-async function viewSearch(term){
-  $("#stripSec").hidden = true; cur.ind = null; await loadIndustries();
-  $("#view").innerHTML = `<p class="empty">Searching…</p>`;
-  const t = term.replace(/[%,()*]/g," ").trim();
-  const { data } = await sb.from("titles_with_ratings").select(LIST_COLS)
-    .or(`title.ilike.%${t}%,title_local.ilike.%${t}%,title_telugu.ilike.%${t}%,director.ilike.%${t}%,cast.ilike.%${t}%`)
-    .order("tmdb_votes",{ascending:false, nullsFirst:false}).order("year",{ascending:false, nullsFirst:false}).limit(80);
-  $("#view").innerHTML = `<p class="crumbs"><a href="#/">All industries</a></p><h2>Results for "${esc(term)}"</h2>
-    <p class="sub">${data?.length ? `${data.length}${data.length===80?"+":""} films by title, director or cast, across every industry` : "No films found. Try a shorter word or a different spelling."}</p>
-    <ul class="films">${(data||[]).map(f=>filmRow(f,true)).join("")}</ul>`;
+async function viewList(slug, from, to, opts){
+  if (!(await buildStrip(slug))) return; markYear(from, to);
+  const sort = SORTS[opts.sort] ? opts.sort : "date", stream = opts.stream === "1";
+  const name = indBySlug[slug].name.replace(/ cinema$/,"");
+  const single = from === to;
+  const inRange = cur.years.filter(d => d.year >= from && d.year <= to);
+  const total = inRange.reduce((a,b)=>a+b.films,0), streaming = inRange.reduce((a,b)=>a+b.streaming,0);
+  const base = single ? `#/i/${slug}/year/${from}` : `#/i/${slug}/years/${from}-${to}`;
+  const prev = single ? cur.years.filter(d=>d.year<from).pop() : null, next = single ? cur.years.find(d=>d.year>from) : null;
+  const decade = Math.floor(from/10)*10;
+  $("#view").innerHTML = `
+    <h2>${esc(name)} films ${single ? `of ${from}` : `${from}–${to}`}</h2>
+    <p class="sub">${total ? `${total.toLocaleString()} films · ${streaming} streaming now` : "No films recorded in this time frame."}</p>
+    <div class="row-nav">
+      ${prev ? `<a class="chip" href="${hashWith(`#/i/${slug}/year/${prev.year}`, {sort:opts.sort})}">← ${prev.year}</a>` : ""}
+      ${next ? `<a class="chip" href="${hashWith(`#/i/${slug}/year/${next.year}`, {sort:opts.sort})}">${next.year} →</a>` : ""}
+      ${single ? `<a class="chip" href="${hashWith(`#/i/${slug}/years/${decade}-${decade+9}`, {sort:opts.sort})}">Whole ${decade}s</a>` : ""}
+      <a class="chip" href="${hashWith(base,{sort:opts.sort})}" aria-pressed="${!stream}">All films</a>
+      <a class="chip" href="${hashWith(base,{sort:opts.sort, stream:"1"})}" aria-pressed="${stream}">Streaming now</a>
+    </div>
+    <form class="filters" id="listForm">
+      <label>From <input class="field" name="from" type="number" min="1880" max="2030" value="${from}"></label>
+      <label>To <input class="field" name="to" type="number" min="1880" max="2030" value="${to}"></label>
+      <label>Sort by <select class="field" name="sort">${Object.entries(SORTS).map(([k,v])=>`<option value="${k}" ${k===sort?"selected":""}>${v}</option>`).join("")}</select></label>
+      <button class="btn primary">Show films</button>
+    </form>
+    <ul class="films" id="filmList"></ul>
+    <div id="more"></div>`;
+  $("#listForm").onsubmit = e => {
+    e.preventDefault();
+    let a = +e.target.from.value || from, b = +e.target.to.value || a; if (b < a) [a, b] = [b, a];
+    go(hashWith(a === b ? `#/i/${slug}/year/${a}` : `#/i/${slug}/years/${a}-${b}`, {sort: e.target.sort.value, stream: stream ? "1" : ""}));
+  };
+  $("#listForm").sort.onchange = e => e.target.form.requestSubmit();
+  let page = 0;
+  const load = async () => {
+    $("#more").innerHTML = `<p class="empty">Loading films…</p>`;
+    let q = sb.from("titles").select(LIST_COLS).eq("industry", slug).gte("year", from).lte("year", to);
+    if (stream) q = q.or("streaming_in.not.is.null,streaming_us.not.is.null");
+    const { data, error } = await orderQuery(q, sort).range(page*PAGE, page*PAGE + PAGE - 1);
+    if (error) { $("#more").innerHTML = `<p class="empty">Films didn't load (${esc(error.message)}). Try a smaller time frame.</p>`; return; }
+    $("#filmList").insertAdjacentHTML("beforeend", data.map(f => filmRow(f, false, !single)).join(""));
+    page++;
+    const shown = $("#filmList").children.length;
+    $("#more").innerHTML = data.length === PAGE
+      ? `<p class="meta">Showing ${shown.toLocaleString()} of ${(stream ? streaming : total).toLocaleString()}</p><button class="btn" id="moreBtn">Show ${PAGE} more</button>`
+      : (shown ? `<p class="meta">Showing all ${shown.toLocaleString()} films.</p>` : `<p class="empty">No films match. Switch to "All films" or widen the years.</p>`);
+    const mb = $("#moreBtn"); if (mb) mb.onclick = load;
+  };
+  await load();
+}
+
+async function viewSearch(term, opts){
+  $("#stripSec").hidden = true; cur = { ind:null, years:[] }; await loadIndustries();
+  $("#q").value = term;
+  const sort = ["relevance","newest","oldest","title","rating"].includes(opts.sort) ? opts.sort : "relevance";
+  const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i=>i.region===r).map(i=>`<option value="${i.slug}" ${opts.ind===i.slug?"selected":""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
+  $("#view").innerHTML = `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
+    <h2>Results for "${esc(term)}"</h2>
+    <form class="filters" id="searchForm">
+      <label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label>
+      <label>From <input class="field" name="from" type="number" min="1880" max="2030" value="${esc(opts.from||"")}" placeholder="Any"></label>
+      <label>To <input class="field" name="to" type="number" min="1880" max="2030" value="${esc(opts.to||"")}" placeholder="Any"></label>
+      <label>Sort by <select class="field" name="sort">${[["relevance","Best match"],["newest","Newest first"],["oldest","Oldest first"],["title","Title A–Z"],["rating","Highest rated"]].map(([k,v])=>`<option value="${k}" ${k===sort?"selected":""}>${v}</option>`).join("")}</select></label>
+      <button class="btn primary">Update results</button>
+    </form>
+    <p class="sub" id="searchNote">Searching…</p>
+    <ul class="films" id="filmList"></ul><div id="more"></div>`;
+  const f = $("#searchForm");
+  f.onsubmit = e => { e.preventDefault(); go(hashWith(`#/search/${encodeURIComponent(term)}`, {ind:f.ind.value, from:f.from.value, to:f.to.value, sort:f.sort.value})); };
+  f.ind.onchange = f.sort.onchange = () => f.requestSubmit();
+  let off = 0;
+  const load = async () => {
+    const { data, error } = await sb.rpc("search_titles", { q: term, p_industry: opts.ind || null,
+      y_from: opts.from ? +opts.from : null, y_to: opts.to ? +opts.to : null, p_sort: sort, lim: 50, off });
+    if (error) { $("#searchNote").textContent = "Search didn't finish: " + error.message + ". Try a longer word."; return; }
+    $("#filmList").insertAdjacentHTML("beforeend", data.map(x => filmRow(x, true, true)).join(""));
+    off += data.length;
+    $("#searchNote").textContent = off ? `${off}${data.length === 50 ? "+" : ""} films match by title, director or cast` : (term.trim().length < 2 ? "Type at least 2 letters." : "No films found. Try a shorter word, a different spelling, or remove the filters.");
+    $("#more").innerHTML = data.length === 50 ? `<button class="btn" id="moreBtn">Show more results</button>` : "";
+    const mb = $("#moreBtn"); if (mb) mb.onclick = load;
+  };
+  await load();
 }
 
 /* ---------- film page ---------- */
 async function viewFilm(id){
-  const { data: f } = await sb.from("titles_with_ratings").select("*").eq("title_id", id).maybeSingle();
+  const { data: f } = await sb.from("titles").select("*").eq("title_id", id).maybeSingle();
   if (!f) { $("#view").innerHTML = `<p class="empty">This film isn't in the database. <a href="#/">Pick an industry</a> instead.</p>`; return; }
   await buildStrip(f.industry); if (f.year) markYear(f.year);
   let mine = null;
@@ -334,7 +404,7 @@ async function viewFilm(id){
   <article class="film">
     <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
     <div>
-      <h1>${esc(f.title)}</h1>
+      <h1>${esc(tidy(f.title))}</h1>
       ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
       <dl class="facts">
         ${fact("Industry", ind?.name)}${fact("Year", f.year ? String(f.year) : null)}
@@ -421,15 +491,16 @@ sb.auth.onAuthStateChange((_e, session) => { const was = user?.id; user = sessio
 
 /* ---------- router ---------- */
 async function route(){
-  const h = location.hash || "#/"; let m;
-  if ((m = h.match(/^#\/i\/([\w-]+)\/year\/(\d{4})(\/streaming)?/))) await viewYear(m[1], +m[2], m[3] ? "streaming" : "all");
-  else if ((m = h.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
-  else if ((m = h.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
-  else if ((m = h.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]));
-  else if ((m = h.match(/^#\/year\/(\d{4})/))) go(`#/i/tollywood/year/${m[1]}`);   // old Telugu links
-  else { cur.ind = null; await viewPicker(); }
+  const { path, p } = parseHash(); const opts = Object.fromEntries(p.entries()); let m;
+  if ((m = path.match(/^#\/i\/([\w-]+)\/year\/(\d{4})(\/streaming)?$/))) await viewList(m[1], +m[2], +m[2], {...opts, stream: m[3] ? "1" : opts.stream});
+  else if ((m = path.match(/^#\/i\/([\w-]+)\/years\/(\d{4})-(\d{4})$/))) await viewList(m[1], +m[2], +m[3], opts);
+  else if ((m = path.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
+  else if ((m = path.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
+  else if ((m = path.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]), opts);
+  else if ((m = path.match(/^#\/year\/(\d{4})/))) go(`#/i/tollywood/year/${m[1]}`);
+  else { cur = { ind:null, years:[] }; await viewPicker(); }
 }
-window.addEventListener("hashchange", () => { route(); window.scrollTo({top: 0}); });
+window.addEventListener("hashchange", async () => { const inList = /\/years?\//.test(location.hash); await route(); window.scrollTo({top: inList ? Math.max(0, $("#view").offsetTop - 16) : 0}); });
 (async () => { const { data } = await sb.auth.getSession(); user = data.session?.user ?? null; renderAcct(); route(); })();
 </script>
 </body>
