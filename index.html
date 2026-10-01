@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pujiverse Films — world cinema, year by year</title>
+<meta name="description" content="Films from 68 film industries, year by year, with where to watch and community ratings.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎞️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Noto+Sans+Telugu:wght@400;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --screen:#EDF2F0; --panel:#FFFFFF; --ink:#1F1B2C; --muted:#5E6672; --line:#CFD8D4;
+  --turmeric:#D99A1E; --turmeric-soft:#F3DDA8; --maroon:#8C2333;
+  --display:"Bricolage Grotesque", "Noto Sans Telugu", system-ui, sans-serif;
+  --body:"Source Sans 3", "Noto Sans Telugu", system-ui, sans-serif;
+  --telugu:"Noto Sans Telugu", system-ui, sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --screen:#16141F; --panel:#211E2D; --ink:#ECE9F2; --muted:#A3A9B4; --line:#363246;
+  --turmeric:#E9AE3A; --turmeric-soft:#4A3A1A; --maroon:#E07A86;}}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--screen);color:var(--ink);font:400 17px/1.55 var(--body)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--turmeric);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+header.top{display:flex;align-items:center;gap:20px;padding:18px 0 8px;flex-wrap:wrap}
+.brand{font:800 22px/1 var(--display);letter-spacing:-.02em;text-decoration:none}
+.brand small{display:block;font:400 13px/1.3 var(--body);color:var(--muted);letter-spacing:0;margin-top:3px}
+.search{flex:1;min-width:220px;display:flex}
+.search input{width:100%;font:inherit;padding:10px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink)}
+.acct button,.btn{font:600 15px var(--body);border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:8px 16px;border-radius:999px;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--screen)}
+.acct{font-size:14px;color:var(--muted);display:flex;gap:10px;align-items:center}
+
+/* The year strip — signature element */
+.strip-head{display:flex;justify-content:space-between;align-items:baseline;margin:8px 0 6px;gap:12px;flex-wrap:wrap}
+.strip-head h1{font:800 clamp(32px,5vw,58px)/1.02 var(--display);letter-spacing:-.03em;margin:0;max-width:16ch}
+.strip-head p{margin:0;color:var(--muted);max-width:40ch}
+.strip-scroll{overflow-x:auto;padding:8px 0 24px;margin:0 -20px;scrollbar-width:thin}
+.strip{display:flex;align-items:flex-end;gap:2px;height:190px;padding:0 20px;min-width:max-content}
+.yr{width:9px;background:var(--line);border:0;padding:0;cursor:pointer;border-radius:2px 2px 0 0;position:relative;transition:background .15s}
+.yr.has-stream{background:linear-gradient(to top,var(--turmeric) var(--s),var(--line) var(--s))}
+.yr:hover,.yr[aria-current="true"]{background:var(--maroon)}
+.yr.decade::after{content:attr(data-y);position:absolute;top:100%;left:0;font:600 11px var(--body);color:var(--muted);padding-top:4px}
+.strip-legend{display:flex;gap:18px;font-size:14px;color:var(--muted);margin:6px 0 0;flex-wrap:wrap}
+.strip-legend span::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;vertical-align:-1px;background:var(--line)}
+.strip-legend span.s::before{background:var(--turmeric)}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--screen);font:600 13px var(--body);padding:5px 9px;border-radius:6px;opacity:0;transform:translate(-50%,-130%)}
+
+main{padding:34px 0 60px}
+h2{font:800 30px/1.1 var(--display);letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 22px}
+.row-nav{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.chip{font:600 14px var(--body);padding:6px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;text-decoration:none}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--screen)}
+
+/* film list: poster column + details, a ledger rather than a card grid */
+.films{list-style:none;margin:0;padding:0;border-top:1.5px solid var(--ink)}
+.films li{display:grid;grid-template-columns:56px 1fr auto;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);align-items:center}
+.films a.t{font:600 19px/1.25 var(--display);text-decoration:none}
+.films a.t:hover{text-decoration:underline;text-decoration-color:var(--turmeric);text-decoration-thickness:3px}
+.te{font-family:var(--telugu);color:var(--muted);font-size:15px}
+.meta{color:var(--muted);font-size:15px}
+.poster-sm{width:56px;aspect-ratio:2/3;border-radius:4px;background:var(--turmeric-soft);object-fit:cover;display:block}
+.where{font-size:14px;text-align:right;max-width:240px}
+.where b{display:inline-block;background:var(--turmeric-soft);color:var(--ink);padding:2px 8px;border-radius:4px;margin:2px 0 2px 4px;font-weight:600}
+.score{font:800 17px var(--display);color:var(--maroon)}
+
+/* film page */
+.film{display:grid;grid-template-columns:minmax(180px,280px) 1fr;gap:40px}
+.film img.poster{width:100%;border-radius:8px;display:block;background:var(--turmeric-soft);aspect-ratio:2/3;object-fit:cover}
+.film h1{font:800 clamp(34px,5vw,56px)/1.02 var(--display);letter-spacing:-.03em;margin:0}
+.film .te{font-size:22px;margin:6px 0 0}
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:22px 0;font-size:16px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0}
+.overview{font-size:18px;max-width:62ch}
+.panel{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:18px 20px;margin-top:22px}
+.panel h3{font:600 18px var(--display);margin:0 0 10px}
+.ratings{display:flex;gap:34px;flex-wrap:wrap}
+.big{font:800 40px/1 var(--display);color:var(--maroon)}
+.big small{font:400 15px var(--body);color:var(--muted)}
+.rate-form{display:grid;gap:12px;max-width:520px}
+.rate-form label{font-weight:600;font-size:15px}
+.dots{display:flex;gap:4px;flex-wrap:wrap}
+.dots button{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:600 14px var(--body);cursor:pointer}
+.dots button[aria-pressed="true"]{background:var(--turmeric);border-color:var(--turmeric);color:#1F1B2C}
+textarea,.field{font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--screen);color:var(--ink);width:100%}
+.msg{font-size:15px;color:var(--maroon)}
+.empty{padding:30px 0;color:var(--muted)}
+dialog{border:0;border-radius:12px;padding:24px;background:var(--panel);color:var(--ink);max-width:380px;width:92vw}
+dialog::backdrop{background:rgba(20,18,30,.5)}
+footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:14px}
+footer p{max-width:80ch;margin:4px 0}
+/* industry picker */
+.region{margin:34px 0 0}
+.region h2{font-size:24px;margin-bottom:8px}
+.inds{list-style:none;margin:0;padding:0;border-top:1.5px solid var(--ink)}
+.inds li a{display:grid;grid-template-columns:minmax(150px,1.1fr) 1.4fr 150px 90px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none}
+.inds li a:hover .nm{text-decoration:underline;text-decoration-color:var(--turmeric);text-decoration-thickness:3px}
+.inds .nm{font:600 19px/1.2 var(--display)}
+.inds .ds{color:var(--muted);font-size:15px}
+.inds .ct{font:800 18px var(--display);text-align:right}
+.inds .ct small{display:block;font:400 12px var(--body);color:var(--muted)}
+.inds svg{width:150px;height:30px;display:block}
+.inds svg polyline{fill:none;stroke:var(--turmeric);stroke-width:1.6}
+.inds li.soon a{opacity:.55}
+.crumbs{font-size:15px;color:var(--muted);margin:22px 0 0}
+.crumbs a{color:var(--ink)}
+.ind-tag{font-size:13px;color:var(--muted);border:1px solid var(--line);padding:1px 7px;border-radius:999px;margin-left:6px;white-space:nowrap}
+@media (max-width:720px){
+  .inds li a{grid-template-columns:1fr 70px}
+  .inds .ds{grid-column:1}
+  .inds svg{grid-column:1;width:100%}
+}
+@media (max-width:720px){
+  .films li{grid-template-columns:44px 1fr}
+  .where{grid-column:2;text-align:left}
+  .poster-sm{width:44px}
+  .film{grid-template-columns:1fr}
+  .film img.poster{max-width:220px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#/">Pujiverse Films<small>World cinema, year by year</small></a>
+    <form class="search" role="search" onsubmit="event.preventDefault();go('#/search/'+encodeURIComponent(this.q.value.trim()))">
+      <input name="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
+    </form>
+    <div class="acct" id="acct"></div>
+  </header>
+
+  <section aria-labelledby="stripTitle" id="stripSec" hidden>
+    <p class="crumbs" id="crumbs"></p>
+    <div class="strip-head">
+      <h1 id="stripTitle"></h1>
+      <p id="stripNote">Each bar is one year. Taller bars mean more films. Pick a year to see its films.</p>
+    </div>
+    <div class="strip-scroll" id="stripScroll"><div class="strip" id="strip" role="list" aria-label="Years"></div></div>
+    <div class="strip-legend"><span>Films released</span><span class="s">Share streaming now</span></div>
+  </section>
+
+  <main id="view" tabindex="-1"></main>
+
+  <footer>
+    <p>Film data from Wikidata (CC0) and Wikipedia (CC BY-SA). Posters, summaries and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability from JustWatch.</p>
+    <p>Spotted a duplicate or a mistake? Open the film and use "Report a duplicate".</p>
+  </footer>
+</div>
+<div class="tip" id="tip" aria-hidden="true"></div>
+
+<dialog id="authDlg">
+  <form method="dialog" id="authForm" class="rate-form">
+    <h3 style="font:800 24px var(--display);margin:0">Sign in to rate films</h3>
+    <label>Email <input class="field" name="email" type="email" required autocomplete="email"></label>
+    <label>Password <input class="field" name="password" type="password" required minlength="6" autocomplete="current-password"></label>
+    <p class="msg" id="authMsg" role="status"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn primary" value="in">Sign in</button>
+      <button class="btn" value="up">Create account</button>
+      <button class="btn" value="cancel" formnovalidate>Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const SUPABASE_URL = "https://oxlgnckdwqnitfakvspr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ofHABj2WJ0YrfIQfje-f4g_3Frgw0Q2";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const go = h => { location.hash = h; };
+const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>a+b.toUpperCase()) : s;
+const REGIONS = ["India","South Asia","East & Southeast Asia","Americas","Europe","Middle East & Africa","Oceania"];
+let user = null, industries = [], indBySlug = {}, cur = { ind:null, years:[] };
+const LIST_COLS = "title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us,user_rating_avg,user_rating_count";
+const local = f => f.title_local || f.title_telugu;
+const realDate = d => d && !d.endsWith("-01-01");
+
+/* ---------- industries ---------- */
+async function loadIndustries(){
+  if (industries.length) return;
+  const { data } = await sb.from("industry_overview").select("*").order("sort_order");
+  industries = data || []; indBySlug = Object.fromEntries(industries.map(i=>[i.slug,i]));
+}
+function spark(points){
+  if (!points?.length) return `<svg viewBox="0 0 150 30" aria-hidden="true"></svg>`;
+  const x0 = 1900, x1 = 2026, max = Math.max(...points.map(p=>p[1]));
+  const byY = Object.fromEntries(points.map(p=>[p[0],p[1]]));
+  const pts = []; for (let y = x0; y <= x1; y += 2){ const v = (byY[y]||0)+(byY[y+1]||0); pts.push(`${((y-x0)/(x1-x0)*150).toFixed(1)},${(29-(v/ (2*max))*27).toFixed(1)}`); }
+  return `<svg viewBox="0 0 150 30" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
+}
+async function viewPicker(){
+  $("#stripSec").hidden = true;
+  await loadIndustries();
+  const total = industries.reduce((a,b)=>a+b.films_loaded,0);
+  $("#view").innerHTML = `
+    <h1 style="font:800 clamp(32px,5vw,58px)/1.02 var(--display);letter-spacing:-.03em;margin:8px 0 6px;max-width:18ch">Pick a film industry</h1>
+    <p class="sub">${total.toLocaleString()} films from ${industries.filter(i=>i.films_loaded).length} industries so far, each line showing its output from 1900 to today.</p>
+    ${REGIONS.map(r => {
+      const list = industries.filter(i=>i.region===r);
+      return `<section class="region"><h2>${esc(r)}</h2><ul class="inds">${list.map(i=>`
+        <li class="${i.films_loaded? "" : "soon"}"><a href="#/i/${i.slug}">
+          <span class="nm">${esc(i.name)}</span>
+          <span class="ds">${esc(i.description)}</span>
+          ${spark(i.spark)}
+          <span class="ct">${i.films_loaded ? i.films_loaded.toLocaleString() : "Soon"}<small>${i.films_loaded ? `${i.first_year}–${i.last_year}` : "loading"}</small></span>
+        </a></li>`).join("")}</ul></section>`;
+    }).join("")}`;
+}
+
+/* ---------- year strip for one industry ---------- */
+async function buildStrip(slug){
+  if (cur.ind === slug) return;
+  await loadIndustries();
+  const ind = indBySlug[slug];
+  if (!ind) { $("#view").innerHTML = `<p class="empty">That industry isn't listed. <a href="#/">Pick one</a>.</p>`; return false; }
+  const { data } = await sb.from("year_counts").select("year,films,streaming").eq("industry", slug).order("year");
+  cur = { ind: slug, years: data || [] };
+  $("#stripSec").hidden = false;
+  $("#crumbs").innerHTML = `<a href="#/">All industries</a> / ${esc(ind.region)}`;
+  const total = cur.years.reduce((a,b)=>a+b.films,0);
+  const short = ind.name.replace(/ cinema$/,"");
+  $("#stripTitle").textContent = total ? `${total.toLocaleString()} ${short} films since ${cur.years[0].year}` : `${ind.name}: films loading soon`;
+  $("#stripNote").textContent = `${ind.description}. Each bar is one year; pick a year to see its films.`;
+  const strip = $("#strip"); strip.innerHTML = ""; if (!total) return true;
+  const max = Math.max(...cur.years.map(d=>d.films)), byYear = Object.fromEntries(cur.years.map(d=>[d.year,d]));
+  const first = cur.years[0].year, last = cur.years[cur.years.length-1].year, tip = $("#tip");
+  for (let y = first; y <= last; y++){
+    const d = byYear[y] || {films:0, streaming:0};
+    const b = document.createElement("button");
+    b.className = "yr" + (y % 10 === 0 ? " decade" : "") + (d.streaming ? " has-stream" : "");
+    b.dataset.y = y; b.style.height = Math.max(3, Math.round(170 * d.films / max)) + "px";
+    if (d.streaming) b.style.setProperty("--s", Math.round(100 * d.streaming / d.films) + "%");
+    b.setAttribute("role","listitem"); b.setAttribute("aria-label", `${y}: ${d.films} films`);
+    b.onclick = () => go(`#/i/${slug}/year/${y}`);
+    b.onmouseenter = e => { tip.textContent = `${y} · ${d.films} films`; tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; tip.style.opacity = 1; };
+    b.onmousemove = e => { tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; };
+    b.onmouseleave = () => tip.style.opacity = 0;
+    strip.appendChild(b);
+  }
+  const sc = $("#stripScroll"); sc.scrollLeft = sc.scrollWidth;
+  return true;
+}
+function markYear(y){
+  document.querySelectorAll(".yr").forEach(b => b.setAttribute("aria-current", +b.dataset.y === y ? "true" : "false"));
+  const el = document.querySelector(`.yr[data-y="${y}"]`);
+  if (el) el.scrollIntoView({block:"nearest", inline:"center", behavior:"smooth"});
+}
+
+/* ---------- lists ---------- */
+function filmRow(f, showInd){
+  const where = (f.streaming_in || f.streaming_us || "").split(", ").filter(Boolean).slice(0,3);
+  const score = f.user_rating_count > 0 ? `<span class="score" title="Pujiverse users">${f.user_rating_avg}</span>` :
+                f.rating_display ? `<span class="score" title="TMDB">${(+f.rating_display).toFixed(1)}</span>` : "";
+  const meta = [realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}) : (showInd ? f.year : null), f.director, g(f.genre)].filter(Boolean).map(esc).join(" · ");
+  return `<li>
+    ${f.poster_url ? `<img class="poster-sm" src="${esc(f.poster_url.replace("/w500/","/w92/"))}" alt="" loading="lazy">` : `<span class="poster-sm" aria-hidden="true"></span>`}
+    <div>
+      <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(f.title)}</a>
+      ${local(f) ? ` <span class="te">${esc(local(f))}</span>` : ""}
+      ${showInd && indBySlug[f.industry] ? `<span class="ind-tag">${esc(indBySlug[f.industry].name)}</span>` : ""}
+      <div class="meta">${meta}</div>
+    </div>
+    <div class="where">${score}${where.map(w=>`<b>${esc(w)}</b>`).join("")}</div>
+  </li>`;
+}
+async function viewIndustry(slug){
+  if (!(await buildStrip(slug))) return; markYear(null);
+  const name = indBySlug[slug].name.replace(/ cinema$/,"");
+  let { data } = await sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug)
+    .not("streaming_in","is",null).gte("year", 2010).order("tmdb_votes",{ascending:false, nullsFirst:false}).limit(24);
+  let head = `Streaming in India right now`, sub = `The most-watched recent ${name} films you can stream today.`;
+  if (!data?.length) {
+    ({ data } = await sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug).not("year","is",null)
+      .order("year",{ascending:false}).order("release_date",{ascending:false, nullsFirst:false}).limit(24));
+    head = `Latest ${name} films`; sub = `Where-to-watch details for this industry are still being added.`;
+  }
+  $("#view").innerHTML = `<h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
+}
+async function viewYear(slug, y, filter){
+  if (!(await buildStrip(slug))) return; markYear(y);
+  const name = indBySlug[slug].name.replace(/ cinema$/,""), c = cur.years.find(d=>d.year===y);
+  let q = sb.from("titles_with_ratings").select(LIST_COLS).eq("industry", slug).eq("year", y);
+  if (filter === "streaming") q = q.or("streaming_in.not.is.null,streaming_us.not.is.null");
+  const { data, error } = await q.order("release_date",{ascending:true, nullsFirst:false}).order("title").limit(2000);
+  const prev = cur.years.filter(d=>d.year<y).pop(), next = cur.years.find(d=>d.year>y);
+  const base = `#/i/${slug}/year/`;
+  $("#view").innerHTML = `
+    <h2>${esc(name)} films of ${y}</h2>
+    <p class="sub">${c ? `${c.films} films · ${c.streaming} streaming now` : "No films recorded for this year."}</p>
+    <div class="row-nav">
+      ${prev ? `<a class="chip" href="${base}${prev.year}">← ${prev.year}</a>` : ""}
+      <a class="chip" href="${base}${y}" aria-pressed="${filter!=="streaming"}">All films</a>
+      <a class="chip" href="${base}${y}/streaming" aria-pressed="${filter==="streaming"}">Streaming now</a>
+      ${next ? `<a class="chip" href="${base}${next.year}">${next.year} →</a>` : ""}
+    </div>
+    ${error ? `<p class="empty">Films for ${y} didn't load. Refresh to try again.</p>` :
+      data.length ? `<ul class="films">${data.map(f=>filmRow(f)).join("")}</ul>` :
+      `<p class="empty">No films match. Switch to "All films" to see everything from ${y}.</p>`}`;
+}
+async function viewSearch(term){
+  $("#stripSec").hidden = true; cur.ind = null; await loadIndustries();
+  $("#view").innerHTML = `<p class="empty">Searching…</p>`;
+  const t = term.replace(/[%,()*]/g," ").trim();
+  const { data } = await sb.from("titles_with_ratings").select(LIST_COLS)
+    .or(`title.ilike.%${t}%,title_local.ilike.%${t}%,title_telugu.ilike.%${t}%,director.ilike.%${t}%,cast.ilike.%${t}%`)
+    .order("tmdb_votes",{ascending:false, nullsFirst:false}).order("year",{ascending:false, nullsFirst:false}).limit(80);
+  $("#view").innerHTML = `<p class="crumbs"><a href="#/">All industries</a></p><h2>Results for "${esc(term)}"</h2>
+    <p class="sub">${data?.length ? `${data.length}${data.length===80?"+":""} films by title, director or cast, across every industry` : "No films found. Try a shorter word or a different spelling."}</p>
+    <ul class="films">${(data||[]).map(f=>filmRow(f,true)).join("")}</ul>`;
+}
+
+/* ---------- film page ---------- */
+async function viewFilm(id){
+  const { data: f } = await sb.from("titles_with_ratings").select("*").eq("title_id", id).maybeSingle();
+  if (!f) { $("#view").innerHTML = `<p class="empty">This film isn't in the database. <a href="#/">Pick an industry</a> instead.</p>`; return; }
+  await buildStrip(f.industry); if (f.year) markYear(f.year);
+  let mine = null;
+  if (user) ({ data: mine } = await sb.from("user_ratings").select("*").eq("title_id", id).eq("user_id", user.id).maybeSingle());
+  const { data: reviews } = await sb.from("user_ratings").select("overall_rating,review,created_at").eq("title_id", id).not("review","is",null).order("created_at",{ascending:false}).limit(20);
+  const fact = (k,v) => v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : "";
+  const list = s => (s||"").split(", ").filter(Boolean).map(w=>`<b style="display:inline-block;background:var(--turmeric-soft);padding:3px 10px;border-radius:4px;margin:3px 6px 3px 0;font-weight:600">${esc(w)}</b>`).join("");
+  const ind = indBySlug[f.industry];
+  $("#view").innerHTML = `
+  <article class="film">
+    <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
+    <div>
+      <h1>${esc(f.title)}</h1>
+      ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
+      <dl class="facts">
+        ${fact("Industry", ind?.name)}${fact("Year", f.year ? String(f.year) : null)}
+        ${fact("Released", realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}) : null)}
+        ${fact("Director", f.director)}${fact("Cast", f.cast)}${fact("Genre", g(f.genre))}${fact("Language", f.language && f.language.length > 3 ? f.language : null)}
+        ${fact("Runtime", f.runtime_min ? f.runtime_min + " min" : null)}${fact("Production", f.production)}
+      </dl>
+      ${f.overview ? `<p class="overview">${esc(f.overview)}</p>` : `<p class="sub">No story summary yet.</p>`}
+      <section class="panel"><h3>Where to watch</h3>
+        ${f.streaming_in ? `<p style="margin:0 0 6px"><strong>India:</strong> ${list(f.streaming_in)}</p>` : ""}
+        ${f.streaming_us ? `<p style="margin:0 0 6px"><strong>United States:</strong> ${list(f.streaming_us)}</p>` : ""}
+        ${f.rent_buy_us ? `<p style="margin:0" class="meta">Rent or buy in the US: ${esc(f.rent_buy_us)}</p>` : ""}
+        ${!f.streaming_in && !f.streaming_us && !f.rent_buy_us ? `<p class="meta" style="margin:0">No streaming information for this film yet.</p>` : ""}
+      </section>
+      <section class="panel"><h3>Ratings</h3>
+        <div class="ratings">
+          <div><div class="big">${f.user_rating_count ? f.user_rating_avg : "–"}<small> /10</small></div><div class="meta">Pujiverse users (${f.user_rating_count})</div></div>
+          <div><div class="big">${f.user_story_avg ?? "–"}<small> /10</small></div><div class="meta">Story rating</div></div>
+          <div><div class="big">${f.rating_display ? (+f.rating_display).toFixed(1) : "–"}<small> /10</small></div><div class="meta">TMDB${f.tmdb_votes ? ` (${f.tmdb_votes} votes)` : ""}</div></div>
+        </div>
+      </section>
+      <section class="panel"><h3>${mine ? "Your rating" : "Rate this film"}</h3>
+        ${user ? rateForm(mine) : `<p style="margin:0 0 10px">Sign in to add your rating and review.</p><button class="btn primary" onclick="openAuth()">Sign in to rate</button>`}
+      </section>
+      ${reviews?.length ? `<section class="panel"><h3>Reviews</h3>${reviews.map(r=>`<p style="margin:0 0 12px"><span class="score">${r.overall_rating}/10</span> ${esc(r.review)}</p>`).join("")}</section>` : ""}
+      <p class="meta" style="margin-top:22px">
+        ${f.wikidata_id ? `<a href="https://www.wikidata.org/wiki/${esc(String(f.wikidata_id).split(",")[0].trim())}" target="_blank" rel="noopener">Wikidata</a> · ` : ""}
+        ${f.wikipedia_url ? `<a href="${esc(f.wikipedia_url)}" target="_blank" rel="noopener">Year list on Wikipedia</a> · ` : ""}
+        ${f.tmdb_id ? `<a href="https://www.themoviedb.org/movie/${f.tmdb_id}" target="_blank" rel="noopener">TMDB</a> · ` : ""}
+        ${user ? `<a href="#" onclick="reportDup('${esc(f.title_id)}');return false">Report a duplicate</a>` : ""}
+      </p>
+    </div>
+  </article>`;
+  if (user) wireRateForm(f.title_id, mine);
+}
+function dots(name, val){ return `<div class="dots" data-name="${name}">${Array.from({length:10},(_,i)=>`<button type="button" aria-pressed="${val===i+1}" aria-label="${i+1} out of 10">${i+1}</button>`).join("")}</div>`; }
+function rateForm(m){
+  return `<form class="rate-form" id="rateForm">
+    <label>Overall</label>${dots("overall_rating", m?.overall_rating)}
+    <label>Story</label>${dots("story_rating", m?.story_rating)}
+    <label for="rv">Review (optional)</label><textarea id="rv" name="review" rows="3" maxlength="2000">${esc(m?.review||"")}</textarea>
+    <p class="msg" id="rateMsg" role="status"></p>
+    <div><button class="btn primary">${m ? "Update rating" : "Save rating"}</button></div>
+  </form>`;
+}
+function wireRateForm(id, mine){
+  const vals = { overall_rating: mine?.overall_rating ?? null, story_rating: mine?.story_rating ?? null };
+  document.querySelectorAll("#rateForm .dots").forEach(grp => grp.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    grp.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true");
+    vals[grp.dataset.name] = +b.textContent;
+  }));
+  $("#rateForm").onsubmit = async e => {
+    e.preventDefault();
+    if (!vals.overall_rating) { $("#rateMsg").textContent = "Pick an overall score from 1 to 10."; return; }
+    const row = { title_id:id, user_id:user.id, ...vals, review: $("#rv").value.trim() || null };
+    const { error } = await sb.from("user_ratings").upsert(row, { onConflict:"title_id,user_id" });
+    if (error) { $("#rateMsg").textContent = "Rating not saved: " + error.message; return; }
+    route();
+  };
+}
+async function reportDup(id){
+  const other = prompt("Which film is this a duplicate of? Paste its title (optional):");
+  if (other === null) return;
+  const { error } = await sb.from("duplicate_reports").insert({ title_id:id, note: other || null, reported_by:user.id });
+  alert(error ? "Report not sent: " + error.message : "Report sent. Thanks for keeping the list clean.");
+}
+
+/* ---------- auth ---------- */
+function renderAcct(){ $("#acct").innerHTML = user ? `<span>${esc(user.email)}</span><button onclick="signOut()">Sign out</button>` : `<button onclick="openAuth()">Sign in</button>`; }
+function openAuth(){ $("#authMsg").textContent = ""; $("#authDlg").showModal(); }
+async function signOut(){ await sb.auth.signOut(); }
+$("#authForm").addEventListener("submit", async e => {
+  const action = e.submitter?.value; if (action === "cancel") return;
+  e.preventDefault();
+  const email = e.target.email.value, password = e.target.password.value;
+  const res = action === "up" ? await sb.auth.signUp({ email, password, options:{ emailRedirectTo: location.origin } })
+                              : await sb.auth.signInWithPassword({ email, password });
+  if (res.error) { $("#authMsg").textContent = res.error.message; return; }
+  if (action === "up" && !res.data.session) { $("#authMsg").textContent = "Check your email to confirm your account, then sign in."; return; }
+  $("#authDlg").close();
+});
+sb.auth.onAuthStateChange((_e, session) => { const was = user?.id; user = session?.user ?? null; renderAcct(); if (was !== user?.id) route(); });
+
+/* ---------- router ---------- */
+async function route(){
+  const h = location.hash || "#/"; let m;
+  if ((m = h.match(/^#\/i\/([\w-]+)\/year\/(\d{4})(\/streaming)?/))) await viewYear(m[1], +m[2], m[3] ? "streaming" : "all");
+  else if ((m = h.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
+  else if ((m = h.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
+  else if ((m = h.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]));
+  else if ((m = h.match(/^#\/year\/(\d{4})/))) go(`#/i/tollywood/year/${m[1]}`);   // old Telugu links
+  else { cur.ind = null; await viewPicker(); }
+}
+window.addEventListener("hashchange", () => { route(); window.scrollTo({top: 0}); });
+(async () => { const { data } = await sb.auth.getSession(); user = data.session?.user ?? null; renderAcct(); route(); })();
+</script>
+</body>
+</html>
