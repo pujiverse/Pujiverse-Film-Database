@@ -190,6 +190,26 @@ const LIST_COLS = "title_id,title,title_telugu,title_local,industry,year,release
 const tidy = t => t ? String(t).replace(/\s*\([^)]*\)\s*$/,"").trim() : t;
 const local = f => { const l = tidy(f.title_local || f.title_telugu); return l && l !== tidy(f.title) ? l : null; };
 const realDate = d => d && !d.endsWith("-01-01");
+const SEARCH_URL = {
+  "Netflix": q => `https://www.netflix.com/search?q=${q}`,
+  "Prime Video": q => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  "YouTube": q => `https://www.youtube.com/results?search_query=${q}`,
+  "YouTube Premium": q => `https://www.youtube.com/results?search_query=${q}`,
+  "Apple TV": q => `https://tv.apple.com/search?term=${q}`, "Apple TV+": q => `https://tv.apple.com/search?term=${q}`,
+  "Tubi TV": q => `https://tubitv.com/search/${q}`, "Tubi": q => `https://tubitv.com/search/${q}`,
+  "JioHotstar": q => `https://www.hotstar.com/in/explore?search_query=${q}`,
+  "Zee5": q => `https://www.zee5.com/search?q=${q}`
+};
+const svc = p => p.replace(/ (Amazon|Apple TV|Roku Premium) Channel$/,"").replace(/^Paramount (Plus|\+).*$|^Paramount\+.*$/,"Paramount+")
+  .replace(/ (Essential|Premium|Standard|Basic|with Ads)$/,"").replace(/^Peacock.*$/,"Peacock").replace(/^Max.*$/,"Max").trim();
+function watchChips(list, f, fallback){
+  const q = encodeURIComponent(tidy(f.title));
+  return [...new Set(list.split(", ").filter(Boolean).map(svc))].map(p => {
+    const href = SEARCH_URL[p] ? SEARCH_URL[p](q) : fallback;
+    const chip = `<b style="display:inline-block;background:var(--turmeric-soft);padding:3px 10px;border-radius:4px;margin:3px 6px 3px 0;font-weight:600">${esc(p)}${href ? " ↗" : ""}</b>`;
+    return href ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="text-decoration:none" title="Find ${esc(tidy(f.title))} on ${esc(p)}">${chip}</a>` : chip;
+  }).join("");
+}
 
 /* ---------- industries ---------- */
 async function loadIndustries(){
@@ -264,7 +284,7 @@ function markYear(y, y2){
 
 /* ---------- lists ---------- */
 function filmRow(f, showInd, showYear){
-  const where = (f.streaming_in || f.streaming_us || "").split(", ").filter(Boolean).slice(0,3);
+  const where = [...new Set((f.streaming_in || f.streaming_us || "").split(", ").filter(Boolean).map(svc))].slice(0,3);
   const score = f.user_rating_count > 0 ? `<span class="score" title="Pujiverse users">${f.user_rating_avg}</span>` :
                 f.rating_display ? `<span class="score" title="TMDB">${(+f.rating_display).toFixed(1)}</span>` : "";
   const when = realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined, showYear ? {year:"numeric",month:"short",day:"numeric"} : {month:"short",day:"numeric"}) : (showYear ? f.year : null);
@@ -414,10 +434,15 @@ async function viewFilm(id){
       </dl>
       ${f.overview ? `<p class="overview">${esc(f.overview)}</p>` : `<p class="sub">No story summary yet.</p>`}
       <section class="panel"><h3>Where to watch</h3>
-        ${f.streaming_in ? `<p style="margin:0 0 6px"><strong>India:</strong> ${list(f.streaming_in)}</p>` : ""}
-        ${f.streaming_us ? `<p style="margin:0 0 6px"><strong>United States:</strong> ${list(f.streaming_us)}</p>` : ""}
-        ${f.rent_buy_us ? `<p style="margin:0" class="meta">Rent or buy in the US: ${esc(f.rent_buy_us)}</p>` : ""}
-        ${!f.streaming_in && !f.streaming_us && !f.rent_buy_us ? `<p class="meta" style="margin:0">No streaming information for this film yet.</p>` : ""}
+        ${f.streaming_in ? `<p style="margin:0 0 6px"><strong>India:</strong> ${watchChips(f.streaming_in, f, f.watch_link_in)}</p>` : ""}
+        ${f.streaming_us ? `<p style="margin:0 0 6px"><strong>United States:</strong> ${watchChips(f.streaming_us, f, f.watch_link_us)}</p>` : ""}
+        ${f.rent_buy_us ? `<p style="margin:0 0 6px" class="meta">Rent or buy in the US: ${esc(f.rent_buy_us)}</p>` : ""}
+        ${!f.streaming_in && !f.streaming_us && !f.rent_buy_us ? `<p class="meta" style="margin:0 0 6px">${f.tmdb_checked_at ? "Not streaming on any service we track right now." : "Streaming details for this film are still being added."}</p>` : ""}
+        <p class="meta" style="margin:8px 0 0">
+          ${f.watch_link_in ? `<a href="${esc(f.watch_link_in)}" target="_blank" rel="noopener">See all options in India ↗</a> · ` : ""}
+          ${f.watch_link_us ? `<a href="${esc(f.watch_link_us)}" target="_blank" rel="noopener">See all options in the US ↗</a> · ` : ""}
+          ${f.streaming_in || f.streaming_us || f.rent_buy_us ? `Streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>` : ""}
+        </p>
       </section>
       <section class="panel"><h3>Ratings</h3>
         <div class="ratings">
@@ -433,7 +458,8 @@ async function viewFilm(id){
       <p class="meta" style="margin-top:22px">
         ${f.wikidata_id ? `<a href="https://www.wikidata.org/wiki/${esc(String(f.wikidata_id).split(",")[0].trim())}" target="_blank" rel="noopener">Wikidata</a> · ` : ""}
         ${f.wikipedia_url ? `<a href="${esc(f.wikipedia_url)}" target="_blank" rel="noopener">Year list on Wikipedia</a> · ` : ""}
-        ${f.tmdb_id ? `<a href="https://www.themoviedb.org/movie/${f.tmdb_id}" target="_blank" rel="noopener">TMDB</a> · ` : ""}
+        ${f.imdb_id ? `<a href="https://www.imdb.com/title/${esc(f.imdb_id)}/" target="_blank" rel="noopener">IMDb ↗</a> · ` : ""}
+        ${f.tmdb_id ? `<a href="https://www.themoviedb.org/movie/${f.tmdb_id}" target="_blank" rel="noopener">TMDB ↗</a> · ` : ""}
         ${user ? `<a href="#" onclick="reportDup('${esc(f.title_id)}');return false">Report a duplicate</a>` : ""}
       </p>
     </div>
