@@ -181,14 +181,32 @@ footer p{max-width:80ch;margin:4px 0}
 <script>
 const SUPABASE_URL = "https://oxlgnckdwqnitfakvspr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ofHABj2WJ0YrfIQfje-f4g_3Frgw0Q2";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);   // accounts, ratings, reviews, reports
+// Film & series catalog lives in Turso (read-only token: can only read public data)
+const TURSO_URL = "https://pujiverse-films-pujiverse.aws-us-east-1.turso.io/v2/pipeline";
+const TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE3OTA5NTY0NzMsImlkIjoiMDFhMGZkNGQtMDYwMS03NDdhLTk4NTEtNzNlY2VkNmQ2NGUyIiwia2lkIjoic2VUSFVJcF9BOVVlSjdfRXlPMkZoRXJrM2p5MTlhcTdldlpkSnhnSkJLSSIsInJpZCI6ImEyM2NjMjM2LWM5ZDQtNDk0MS05MDVmLWFmMmQxOWQyYWI3NCJ9.t21y4f1TV6mShgcKLFD7rOtmVWJhrUTzUTlIpI0j9ZGQ2LCdkGY1PyOorqOP39fuwFvqVHsvXZ5w1yd8VixMAg";
+const toArg = v => v === null || v === undefined ? {type:"null"} : Number.isInteger(v) ? {type:"integer", value:String(v)}
+  : typeof v === "number" ? {type:"float", value:v} : {type:"text", value:String(v)};
+async function tq(sql, args = []){
+  const r = await fetch(TURSO_URL, { method:"POST", headers:{ "Authorization":`Bearer ${TURSO_TOKEN}`, "Content-Type":"application/json" },
+    body: JSON.stringify({ requests:[{ type:"execute", stmt:{ sql, args: args.map(toArg) } }, { type:"close" }] }) });
+  if (!r.ok) throw new Error(`Catalog request failed (${r.status})`);
+  const res = (await r.json()).results[0];
+  if (res.type === "error") throw new Error(res.error.message);
+  const { cols, rows } = res.response.result;
+  return rows.map(row => Object.fromEntries(cols.map((c, i) => {
+    const v = row[i]; let val = v.type === "null" ? null : v.type === "integer" ? Number(v.value) : v.type === "float" ? Number(v.value) : v.value;
+    return [c.name === "cast_names" ? "cast" : c.name, val];
+  })));
+}
+const safe = async (p) => { try { return { data: await p, error: null }; } catch (e) { return { data: null, error: e }; } };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const go = h => { location.hash = h; };
 const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>a+b.toUpperCase()) : s;
 const REGIONS = ["India","South Asia","East & Southeast Asia","Americas","Europe","Middle East & Africa","Oceania"];
 let user = null, industries = [], indBySlug = {}, cur = { ind:null, years:[] };
-const LIST_COLS = "type,seasons,network,title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us,user_rating_avg,user_rating_count";
+const LIST_COLS = "type,seasons,network,title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us";
 const tidy = t => t ? String(t).replace(/\s*\([^)]*\)\s*$/,"").trim() : t;
 const local = f => { const l = tidy(f.title_local || f.title_telugu); return l && l !== tidy(f.title) ? l : null; };
 const realDate = d => d && !d.endsWith("-01-01");
@@ -216,7 +234,14 @@ function watchChips(list, f, fallback){
 /* ---------- industries ---------- */
 async function loadIndustries(){
   if (industries.length) return;
-  const { data } = await sb.from("industry_overview").select("*").order("sort_order");
+  const { data } = await safe(tq(`select i.slug, i.name, i.region, i.description, i.sort_order,
+    coalesce((select sum(films) from industry_year_stats s where s.industry=i.slug and s.kind='film'),0) as films_loaded,
+    (select min(year) from industry_year_stats s where s.industry=i.slug and s.kind='film') as first_year,
+    (select max(year) from industry_year_stats s where s.industry=i.slug and s.kind='film') as last_year,
+    coalesce((select sum(films) from industry_year_stats s where s.industry=i.slug and s.kind='series'),0) as series_loaded,
+    (select json_group_array(json_array(year, films)) from (select year, films from industry_year_stats s where s.industry=i.slug and s.kind='film' order by year)) as spark
+    from industries i order by i.sort_order`));
+  (data || []).forEach(i => { try { i.spark = JSON.parse(i.spark || "[]"); } catch { i.spark = []; } });
   industries = data || []; indBySlug = Object.fromEntries(industries.map(i=>[i.slug,i]));
 }
 function spark(points){
@@ -251,9 +276,7 @@ async function buildStrip(slug, kind = "film"){
   await loadIndustries();
   const ind = indBySlug[slug];
   if (!ind) { $("#view").innerHTML = `<p class="empty">That industry isn't listed. <a href="#/">Pick one</a>.</p>`; return false; }
-  const { data } = kind === "series"
-    ? await sb.from("series_year_counts").select("year,films:shows,streaming").eq("industry", slug).order("year")
-    : await sb.from("year_counts").select("year,films,streaming").eq("industry", slug).order("year");
+  const { data } = await safe(tq("select year, films, streaming from industry_year_stats where industry = ? and kind = ? order by year", [slug, kind]));
   cur = { ind: slug, kind, years: data || [] };
   $("#stripSec").hidden = false;
   const sPath = kind === "series" ? "/series" : "";
@@ -316,12 +339,12 @@ function filmRow(f, showInd, showYear){
 async function viewIndustry(slug){
   if (!(await buildStrip(slug))) return; markYear(null);
   const name = indBySlug[slug].name.replace(/ cinema$/,"");
-  let { data } = await sb.from("titles").select(LIST_COLS).eq("industry", slug).neq("type","series")
-    .not("streaming_in","is",null).gte("year", 2010).order("tmdb_votes",{ascending:false, nullsFirst:false}).limit(24);
+  let { data } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and type <> 'series' and year >= 2010
+    and streaming_in is not null order by coalesce(tmdb_votes,0) desc limit 24`, [slug]));
   let head = `Streaming in India right now`, sub = `The most-watched recent ${name} films you can stream today.`;
   if (!data?.length) {
-    ({ data } = await sb.from("titles").select(LIST_COLS).eq("industry", slug).neq("type","series").not("year","is",null)
-      .order("year",{ascending:false}).order("release_date",{ascending:false, nullsFirst:false}).limit(24));
+    ({ data } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and type <> 'series' and year is not null
+      order by year desc, release_date desc nulls last limit 24`, [slug])));
     head = `Latest ${name} films`; sub = `Where-to-watch details for this industry are still being added.`;
   }
   $("#view").innerHTML = `<h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
@@ -330,17 +353,17 @@ const PAGE = 100;
 const SORTS = { date:"Release date", newest:"Newest first", title:"Title A–Z", rating:"Highest rated" };
 function parseHash(){ const [path, qs] = (location.hash || "#/").split("?"); return { path, p: new URLSearchParams(qs || "") }; }
 function hashWith(path, params){ const s = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== "" && v != null && v !== false)).toString(); return path + (s ? "?" + s : ""); }
-function orderQuery(q, sort){
-  if (sort === "title") return q.order("title");
-  if (sort === "newest") return q.order("year",{ascending:false, nullsFirst:false}).order("release_date",{ascending:false, nullsFirst:false}).order("title");
-  if (sort === "rating") return q.order("user_rating_avg",{ascending:false, nullsFirst:false}).order("rating_display",{ascending:false, nullsFirst:false}).order("tmdb_votes",{ascending:false, nullsFirst:false}).order("title");
-  return q.order("year").order("release_date",{ascending:true, nullsFirst:false}).order("title");
-}
+const ORDER_SQL = {
+  title: "title collate nocase",
+  newest: "year desc, release_date desc nulls last, title collate nocase",
+  rating: "(case when rating_display is null then null else (rating_display*coalesce(tmdb_votes,0) + 6.5*250.0)/(coalesce(tmdb_votes,0)+250.0) end) desc nulls last, title collate nocase",
+  date: "year, release_date nulls last, title collate nocase"
+};
 async function viewSeries(slug){
   if (!(await buildStrip(slug, "series"))) return; markYear(null);
   const name = indBySlug[slug].name.replace(/ cinema$/,"");
-  const { data } = await sb.from("titles").select(LIST_COLS).eq("industry", slug).eq("type","series")
-    .order("tmdb_votes",{ascending:false, nullsFirst:false}).limit(40);
+  const { data } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and type = 'series'
+    order by coalesce(tmdb_votes,0) desc limit 40`, [slug]));
   $("#view").innerHTML = data?.length
     ? `<h2>Popular ${esc(name)} web series</h2><p class="sub">Shows made for streaming services. Pick a year above to see everything that premiered then.</p><ul class="films">${data.map(f=>filmRow(f,false,true)).join("")}</ul>`
     : `<h2>${esc(name)} web series</h2><p class="empty">No web series found for this industry yet.</p>`;
@@ -383,10 +406,9 @@ async function viewList(slug, from, to, opts, kind = "film"){
   let page = 0;
   const load = async () => {
     $("#more").innerHTML = `<p class="empty">Loading films…</p>`;
-    let q = sb.from("titles").select(LIST_COLS).eq("industry", slug).gte("year", from).lte("year", to);
-    q = isS ? q.eq("type","series") : q.neq("type","series");
-    if (stream) q = q.or("streaming_in.not.is.null,streaming_us.not.is.null");
-    const { data, error } = await orderQuery(q, sort).range(page*PAGE, page*PAGE + PAGE - 1);
+    const { data, error } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and year between ? and ?
+      and type ${isS ? "=" : "<>"} 'series' ${stream ? "and (streaming_in is not null or streaming_us is not null)" : ""}
+      order by ${ORDER_SQL[sort]} limit ? offset ?`, [slug, from, to, PAGE, page*PAGE]));
     if (error) { $("#more").innerHTML = `<p class="empty">Films didn't load (${esc(error.message)}). Try a smaller time frame.</p>`; return; }
     $("#filmList").insertAdjacentHTML("beforeend", data.map(f => filmRow(f, false, !single)).join(""));
     page++;
@@ -418,10 +440,28 @@ async function viewSearch(term, opts){
   const f = $("#searchForm");
   f.onsubmit = e => { e.preventDefault(); go(hashWith(`#/search/${encodeURIComponent(term)}`, {ind:f.ind.value, from:f.from.value, to:f.to.value, sort:f.sort.value})); };
   f.ind.onchange = f.sort.onchange = () => f.requestSubmit();
-  let off = 0;
+  let off = 0, usePrefix = false;
   const load = async () => {
-    const { data, error } = await sb.rpc("search_titles", { q: term, p_industry: opts.ind || null,
-      y_from: opts.from ? +opts.from : null, y_to: opts.to ? +opts.to : null, p_sort: sort, lim: 50, off });
+    const words = (term.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).slice(0, 8);
+    const t = term.trim().toLowerCase();
+    const SEARCH_ORDER = { relevance: "rk, coalesce(t.tmdb_votes,0) desc, t.year desc nulls last",
+      newest: "t.year desc nulls last, rk", oldest: "t.year nulls last, rk", title: "t.title collate nocase",
+      rating: "(case when t.rating_display is null then null else (t.rating_display*coalesce(t.tmdb_votes,0) + 6.5*250.0)/(coalesce(t.tmdb_votes,0)+250.0) end) desc nulls last" };
+    const runSearch = match => safe(tq(`with c as (select rowid from titles_fts where titles_fts match ?2 limit 20000)
+      select ${LIST_COLS.split(",").map(c => "t." + c).join(",")},
+      case when lower(t.title) = ?1 or lower(coalesce(t.title_local,'')) = ?1 or lower(coalesce(t.original_title,'')) = ?1 or lower(coalesce(t.title_telugu,'')) = ?1 then 1
+           when lower(t.title) like ?1 || '%' or lower(coalesce(t.title_local,'')) like ?1 || '%' then 2
+           when lower(t.title) like '%' || ?1 || '%' or lower(coalesce(t.title_local,'')) like '%' || ?1 || '%' or lower(coalesce(t.original_title,'')) like '%' || ?1 || '%' then 3
+           when lower(coalesce(t.director,'')) like '%' || ?1 || '%' then 4 else 5 end as rk
+      from c join titles t on t.rowid = c.rowid
+      where (?3 is null or t.industry = ?3) and (?4 is null or t.year >= ?4) and (?5 is null or t.year <= ?5)
+      order by ${SEARCH_ORDER[sort]} limit 50 offset ?6`,
+      [t, match, opts.ind || null, opts.from ? +opts.from : null, opts.to ? +opts.to : null, off]));
+    const whole = words.map(w => `"${w}"`).join(" ");
+    const prefix = words.map((w, i) => i === words.length - 1 ? `"${w}"*` : `"${w}"`).join(" ");
+    let { data, error } = !words.length ? { data: [], error: null } : await runSearch(usePrefix ? prefix : whole);
+    if (!error && off === 0 && !usePrefix && data.length === 0 && words.length) { usePrefix = true; ({ data, error } = await runSearch(prefix)); }
+    if (data) data.forEach(x => x.match_field = x.rk === 4 ? "director" : x.rk === 5 ? "cast" : "title");
     if (error) { $("#searchNote").textContent = "Search didn't finish: " + error.message + ". Try a longer word."; return; }
     $("#filmList").insertAdjacentHTML("beforeend", data.map(x => filmRow(x, true, true)).join(""));
     off += data.length;
@@ -434,7 +474,13 @@ async function viewSearch(term, opts){
 
 /* ---------- film page ---------- */
 async function viewFilm(id){
-  const { data: f } = await sb.from("titles").select("*").eq("title_id", id).maybeSingle();
+  const { data: rows } = await safe(tq("select * from titles where title_id = ?", [id]));
+  const f = rows?.[0];
+  if (f) {
+    const { data: rs } = await sb.from("user_ratings").select("overall_rating,story_rating").eq("title_id", id);
+    const avg = k => { const v = (rs||[]).map(r=>r[k]).filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10 : null; };
+    f.user_rating_count = (rs||[]).length; f.user_rating_avg = avg("overall_rating"); f.user_story_avg = avg("story_rating");
+  }
   if (!f) { $("#view").innerHTML = `<p class="empty">This film isn't in the database. <a href="#/">Pick an industry</a> instead.</p>`; return; }
   await buildStrip(f.industry, f.type === "series" ? "series" : "film"); if (f.year) markYear(f.year);
   let mine = null;

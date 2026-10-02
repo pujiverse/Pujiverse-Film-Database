@@ -41,15 +41,17 @@ The database is still being filled. Industries without data yet show **"Soon"** 
 ## How it works
 
 ```
- Wikidata (SPARQL + entity API) ─┐
- Wikipedia "List of X films of YEAR" ─┼─► Python pipeline ─► Supabase (Postgres) ◄── index.html on GitHub Pages
- TMDB API (+ JustWatch providers) ─┘          (pipeline/)      (supabase/schema.sql)     (reads with the public key)
+ Wikidata (SPARQL + entity API) ─┐                         ┌─► Turso (SQLite + FTS5): catalog ◄──┐
+ Wikipedia "List of X films of YEAR" ─┼─► Python pipeline ──┤                                     ├── index.html on GitHub Pages
+ TMDB API (+ JustWatch providers) ─┘                         └─► Supabase (Postgres): accounts, ratings ◄──┘
 ```
 
 1. **Wikidata** supplies the base list for each industry: titles, dates, directors, cast, genres, runtimes, and IMDb/TMDB IDs. Indian industries are matched by original language; others by country of origin, including historical states such as the Soviet Union, Czechoslovakia and West/East Germany.
 2. **Wikipedia year lists** fill in films that Wikidata is missing. This added about 21,000 Indian and South Asian films, for example taking Bhojpuri from 37 films to over 500.
 3. **TMDB** adds the story summary, poster, rating, and where-to-watch data (from JustWatch) for India and the US.
-4. Everything is stored in **Supabase**. The website is a single static `index.html` that queries Supabase directly from the browser.
+4. The **film and series catalog** (about 430,000 titles, ~290 MB with full-text search) lives in **Turso** (SQLite, free 5 GB tier). The website reads it with a **read-only** token, so visitors can't change anything.
+5. **Accounts, ratings, reviews and duplicate reports** live in **Supabase** (a few MB, well inside its free 500 MB).
+The website is a single static `index.html` that queries both directly from the browser.
 
 ## Repository structure
 
@@ -124,7 +126,7 @@ Uploads are insert-or-ignore on `title_id`, so rerunning never overwrites existi
 ## Security
 
 - **Never commit** your Supabase **service role** key or your **TMDB** key. Keep them in `.env`, which `.gitignore` already excludes, or in environment variables.
-- Only the **publishable** key belongs in `index.html`.
+- Only the Supabase **publishable** key and the Turso **read-only** token belong in `index.html`. Never put a Turso full-access (read-write) token in the website.
 - If a key is ever exposed (pasted in a chat, screenshot or commit), regenerate it: TMDB under **Settings → API → Regenerate Key**, Supabase under **Project Settings → API Keys**.
 - Row level security is enabled on every table. Users can only create, edit or delete their own ratings and reports.
 
