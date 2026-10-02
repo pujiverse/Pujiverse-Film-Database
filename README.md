@@ -16,7 +16,9 @@
   - Matches title (English and original script), director, or cast.
   - Ranks exact titles first, then partial title matches, then director, then cast, with better-known films first within each group.
   - Filters by industry and year range.
-- **Film pages:** poster, story, cast and crew, runtime, and where to watch in India and the US.
+- **Web series section for every industry:** a Films | Web series tab on each industry page, with its own year strip, sorting and time-frame filters. A show counts as a web series when its original network is a streaming service (Netflix, Prime Video, JioHotstar, aha, ZEE5, SonyLIV, and others); TV-channel serials and adult-content platforms are excluded.
+- **Film and series pages:** poster, story, cast and crew, runtime, seasons and episodes for series, and where to watch in India and the US.
+- **Where-to-watch links:** each platform opens a search for the title on that service (or the TMDB/JustWatch page), with "See all options" links per country, plus IMDb and TMDB links.
 - **Community ratings:** signed-in users give an overall score and a separate story score (1–10) with an optional review. One rating per user per film, editable.
 - **Duplicate reporting:** users can flag a film listed twice.
 - **Original-script titles:** Telugu, Hindi, Tamil, Korean, Japanese and others appear next to the English title.
@@ -62,7 +64,8 @@ The database is still being filled. Industries without data yet show **"Soon"** 
     ├── industries.py          # industry definitions (Wikidata language / country IDs)
     ├── fast_pipeline.py       # step 1: download films from Wikidata
     ├── wiki_fill.py           # step 2: add missing films from Wikipedia year lists
-    ├── enrich_tmdb.py         # step 3: posters, stories, ratings, streaming from TMDB
+    ├── enrich_all.py          # step 3: posters, stories, ratings, where-to-watch from TMDB (resumable)
+    ├── tmdb_series.py         # web series per industry from TMDB
     ├── load_to_supabase.py    # step 4: upload results into Supabase
     └── requirements.txt
 ```
@@ -103,9 +106,12 @@ python fast_pipeline.py --all          # several hours; safe to stop and rerun, 
 # step 2: Wikipedia gap-fill (writes out/<industry>_wiki.csv)
 python wiki_fill.py bollywood kollywood bhojiwood
 
-# step 3 (optional): TMDB enrichment
+# step 3: TMDB enrichment (writes straight to Supabase; safe to stop and rerun)
 export TMDB_API_KEY=...                # Windows: set TMDB_API_KEY=...
-python enrich_tmdb.py out/tollywood.csv
+python enrich_all.py --seconds 3600
+
+# web series (writes out/<industry>_series.csv, then upload in step 4)
+python tmdb_series.py --all
 
 # step 4: upload
 export SUPABASE_URL=https://your-project-ref.supabase.co
@@ -146,7 +152,8 @@ TMDB's free developer key covers **non-commercial** use. Running ads, paid featu
 
 - [ ] Finish loading every industry, then run a cross-industry duplicate check
 - [ ] TMDB enrichment beyond Telugu (posters, stories, streaming)
-- [ ] TV series, anime and short-film sections
+- [x] Web series section for every industry
+- [ ] Anime and short-film sections
 - [ ] Scheduled weekly refresh of new releases and streaming data
 - [ ] Per-film pages that search engines can index
 
