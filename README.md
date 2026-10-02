@@ -56,77 +56,76 @@ The website is a single static `index.html` that queries both directly from the 
 ## Repository structure
 
 ```
-├── index.html                 # the whole website (HTML + CSS + JS, no build step)
-├── .nojekyll                  # tells GitHub Pages to serve files as-is
-├── .env.example               # template for pipeline secrets (copy to .env, never commit)
+├── index.html                     # the whole website (HTML + CSS + JS, no build step)
+├── .nojekyll                      # tells GitHub Pages to serve files as-is
+├── .env.example                   # template for pipeline secrets (copy to .env, never commit)
+├── turso/
+│   ├── schema.sql                 # catalog: titles, industries, year counts, full-text search + sync triggers
+│   ├── seed_industries.sql        # the 68 industries
+│   └── migrate_001_sync_triggers.sql  # one-time upgrade for databases created before the triggers existed
 ├── supabase/
-│   ├── schema.sql             # tables, indexes, row level security, views, search function
-│   └── seed_industries.sql    # the 68 industries
+│   └── schema.sql                 # accounts data only: user_ratings, duplicate_reports (+ row level security)
 └── pipeline/
-    ├── industries.py          # industry definitions (Wikidata language / country IDs)
-    ├── fast_pipeline.py       # step 1: download films from Wikidata
-    ├── wiki_fill.py           # step 2: add missing films from Wikipedia year lists
-    ├── enrich_all.py          # step 3: posters, stories, ratings, where-to-watch from TMDB (resumable)
-    ├── tmdb_series.py         # web series per industry from TMDB
-    ├── load_to_supabase.py    # step 4: upload results into Supabase
+    ├── industries.py              # industry definitions (Wikidata language / country IDs)
+    ├── fast_pipeline.py           # 1. films from Wikidata            -> out/<industry>.csv
+    ├── wiki_fill.py               # 2. missing films from Wikipedia   -> out/<industry>_wiki.csv
+    ├── tmdb_series.py             # 3. web series from TMDB           -> out/<industry>_series.csv
+    ├── load_to_turso.py           # 4. upload CSVs into Turso and refresh year counts
+    ├── enrich_turso.py            # 5. posters, stories, ratings, where-to-watch from TMDB (resumable)
+    ├── turso_client.py            # small Turso HTTP client used by the scripts
     └── requirements.txt
 ```
 
 ## Run your own copy
 
-### 1. Database
+### 1. Catalog database (Turso, free 5 GB)
 
-1. Create a project at [supabase.com](https://supabase.com). The free tier is enough for roughly 300,000 films.
-2. In **SQL Editor**, run `supabase/schema.sql`, then `supabase/seed_industries.sql`.
-3. In **Authentication → URL Configuration**, set **Site URL** to your website's address so sign-up confirmation emails link back correctly.
+1. Create a database at [turso.tech](https://turso.tech) (US East (Virginia) suits a US audience).
+2. Run `turso/schema.sql`, then `turso/seed_industries.sql` (Turso CLI: `turso db shell <db> < turso/schema.sql`).
+3. Create two tokens: a **read-only** token for the website, and a **full-access** token for the pipeline (keep it in `.env`).
 
-### 2. Website
+### 2. Accounts database (Supabase, free 500 MB)
 
-In `index.html`, set your project URL and **publishable** key:
+1. Create a project at [supabase.com](https://supabase.com) and run `supabase/schema.sql` in the SQL Editor.
+2. In **Authentication → URL Configuration**, set **Site URL** to your website address.
+
+### 3. Website
+
+In `index.html` set:
 
 ```js
 const SUPABASE_URL = "https://your-project-ref.supabase.co";
-const SUPABASE_KEY = "sb_publishable_...";
+const SUPABASE_KEY = "sb_publishable_...";                 // public by design
+const TURSO_URL    = "https://<db>-<org>.<region>.turso.io/v2/pipeline";
+const TURSO_TOKEN  = "<read-only token>";                    // must be read-only
 ```
 
-The publishable key is meant to be public. Row level security means visitors can only read films and manage their own ratings.
+Push to GitHub and enable **Settings → Pages → Deploy from branch → `main` / root**. No build step.
 
-Then push to GitHub and enable **Settings → Pages → Deploy from branch → `main` / root**. There is no build step.
-
-### 3. Data pipeline
+### 4. Data pipeline
 
 ```bash
 cd pipeline
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+# load .env into the environment (or set the three variables by hand)
 
-# step 1: Wikidata (choose industries, a region, or --all)
-python fast_pipeline.py tollywood bollywood
-python fast_pipeline.py --group India
-python fast_pipeline.py --all          # several hours; safe to stop and rerun, progress is cached
+python fast_pipeline.py --group India      # or specific industries, or --all (hours; resumable)
+python wiki_fill.py bollywood kollywood    # films Wikidata is missing
+python tmdb_series.py --all                # web series
+python load_to_turso.py                    # upload everything in out/
 
-# step 2: Wikipedia gap-fill (writes out/<industry>_wiki.csv)
-python wiki_fill.py bollywood kollywood bhojiwood
-
-# step 3: TMDB enrichment (writes straight to Supabase; safe to stop and rerun)
-export TMDB_API_KEY=...                # Windows: set TMDB_API_KEY=...
-python enrich_all.py --seconds 3600
-
-# web series (writes out/<industry>_series.csv, then upload in step 4)
-python tmdb_series.py --all
-
-# step 4: upload
-export SUPABASE_URL=https://your-project-ref.supabase.co
-export SUPABASE_SERVICE_ROLE_KEY=...   # server-side only
-python load_to_supabase.py
+python enrich_turso.py --dry-run           # check matching without writing
+python enrich_turso.py --seconds 3600      # posters, stories, streaming (rerun until "nothing left")
+python enrich_turso.py --seconds 3600 --search   # then titles without IDs, by title + year
 ```
 
-Uploads are insert-or-ignore on `title_id`, so rerunning never overwrites existing rows or ratings.
+Uploads are insert-or-ignore on `title_id`, and enrichment only fills empty fields, so reruns are always safe.
 
 ## Security
 
 - **Never commit** your Supabase **service role** key or your **TMDB** key. Keep them in `.env`, which `.gitignore` already excludes, or in environment variables.
-- Only the Supabase **publishable** key and the Turso **read-only** token belong in `index.html`. Never put a Turso full-access (read-write) token in the website.
+- Only the Supabase **publishable** key and the Turso **read-only** token belong in `index.html`. Never put a Turso full-access (read-write) token in the website.\n- Turso does not list tokens after creating them. To revoke a leaked token, use **Invalidate All Tokens** on the database page, then create a new read-only token and update `index.html`.
 - If a key is ever exposed (pasted in a chat, screenshot or commit), regenerate it: TMDB under **Settings → API → Regenerate Key**, Supabase under **Project Settings → API Keys**.
 - Row level security is enabled on every table. Users can only create, edit or delete their own ratings and reports.
 
