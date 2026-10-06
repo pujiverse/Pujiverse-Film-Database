@@ -6,7 +6,7 @@ CREATE TABLE industries (slug text primary key, name text not null, language_cod
 CREATE TABLE industry_year_stats (industry text not null, kind text not null, year int not null, films int not null, streaming int not null,
   primary key (industry, kind, year));
 
-CREATE TABLE titles (title_id text primary key, title, title_local, title_telugu, original_title, industry, language, type, status, release_date, year, genre, runtime_min, director, "cast_names", production, overview, poster_url, tmdb_rating, tmdb_votes, rating_display, streaming_in, streaming_us, rent_buy_us, watch_link_in, watch_link_us, imdb_id, tmdb_id, wikidata_id, wikipedia_url, source, seasons, episodes, network, last_air_date, series_status, creators, tmdb_checked_at);
+CREATE TABLE titles (title_id text primary key, title, title_local, title_telugu, original_title, industry, language, type, status, release_date, year, genre, runtime_min, director, "cast_names", production, overview, poster_url, tmdb_rating, tmdb_votes, rating_display, streaming_in, streaming_us, rent_buy_us, watch_link_in, watch_link_us, imdb_id, tmdb_id, wikidata_id, wikipedia_url, source, seasons, episodes, network, last_air_date, series_status, creators, tmdb_checked_at, languages text);
 
 CREATE VIRTUAL TABLE titles_fts using fts5(title, title_local, title_telugu, original_title, director, cast_names,
   content='titles', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2');
@@ -35,3 +35,6 @@ end;
 
 -- lets the TMDB step find unprocessed titles quickly (newest first)
 create index if not exists titles_tmdb_todo_idx on titles (year desc) where tmdb_checked_at is null;
+
+-- release calendar and Coming soon pages
+create index if not exists titles_release_idx on titles (release_date);

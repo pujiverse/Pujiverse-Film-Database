@@ -104,6 +104,70 @@ footer p{max-width:80ch;margin:4px 0}
 #more{padding:18px 0}
 .tabs{display:inline-flex;gap:8px;margin-left:12px;vertical-align:middle;flex-wrap:wrap}
 .tabs .chip{font-size:13px;padding:4px 11px}
+/* release calendar */
+.cal-wrap{margin:6px 0 26px}
+.cal-wrap h3{font:800 22px/1.2 var(--display);margin:0 0 4px}
+.cal-months{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.cal-months button{font:600 13px var(--body);padding:5px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.cal-months button small{color:var(--muted);font-weight:400;margin-left:4px}
+.cal-months button[aria-pressed="true"]{background:var(--ink);color:var(--screen);border-color:var(--ink)}
+.cal-months button[aria-pressed="true"] small{color:inherit;opacity:.75}
+.cal-months button:disabled{opacity:.4;cursor:default}
+.cal-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:22px;align-items:start}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-grid .dow{font:600 12px var(--body);color:var(--muted);text-align:center;padding:4px 0}
+.cal-day{min-height:88px;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:5px 6px;text-align:left;font:inherit;color:var(--ink);display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.cal-day.empty{background:transparent;border-color:transparent}
+.cal-day.has{cursor:pointer;border-color:var(--turmeric)}
+.cal-day.has:hover{background:var(--turmeric-soft)}
+.cal-day[aria-pressed="true"]{outline:2.5px solid var(--maroon);outline-offset:-1px}
+.cal-day.today .dn{background:var(--maroon);color:#fff;border-radius:999px;padding:0 6px}
+.cal-day .dn{font:700 13px var(--display);align-self:flex-start}
+.cal-day .ev{font-size:11.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-day .more{font-size:11px;color:var(--muted)}
+.cal-day .cnt{display:none}
+.cal-side{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:14px 16px;max-height:640px;overflow:auto}
+.cal-side h4{font:700 17px var(--display);margin:0 0 6px}
+.cal-side .films li{grid-template-columns:40px 1fr;gap:10px;padding:9px 0}
+.cal-side .films .poster-sm{width:40px}
+.cal-side .films .where{display:none}
+.list-h{font:800 22px/1.2 var(--display);margin:26px 0 10px}
+.badge{display:inline-block;font:600 12px var(--body);padding:2px 8px;border-radius:999px;background:var(--turmeric-soft);color:var(--ink);margin-left:6px;white-space:nowrap}
+.badge.soon{background:var(--maroon);color:#fff}
+.icsbtn{font:600 12px var(--body);border:1.5px solid var(--line);background:transparent;color:var(--ink);padding:3px 9px;border-radius:999px;cursor:pointer;margin-top:6px}
+.icsbtn:hover{border-color:var(--ink)}
+.mhead{font:800 20px var(--display);margin:24px 0 4px;padding-top:6px}
+.nav-link{font:600 15px var(--body);text-decoration:none;padding:8px 4px;white-space:nowrap}
+.nav-link:hover{text-decoration:underline;text-decoration-color:var(--turmeric);text-decoration-thickness:3px}
+/* chat assistant */
+#chatBtn{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:50;font:700 15px var(--body);background:var(--ink);color:var(--screen);border:0;border-radius:999px;padding:12px 18px;cursor:pointer;box-shadow:0 6px 24px rgba(20,18,30,.25)}
+#chatPanel{position:fixed;right:20px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:50;width:min(420px,calc(100vw - 32px));height:min(600px,calc(100vh - 120px));background:var(--panel);color:var(--ink);border:1.5px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(20,18,30,.3)}
+#chatPanel[hidden]{display:none}
+#chatPanel header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+#chatPanel header b{font:800 17px var(--display)}
+#chatPanel header button{border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
+#chatLog{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.msg-u,.msg-a{max-width:90%;padding:9px 12px;border-radius:12px;font-size:15px;line-height:1.45;word-wrap:break-word}
+.msg-u{align-self:flex-end;background:var(--ink);color:var(--screen);border-bottom-right-radius:4px}
+.msg-a{align-self:flex-start;background:var(--screen);border-bottom-left-radius:4px}
+.msg-a a{color:var(--maroon);font-weight:600}
+.msg-a ul{margin:4px 0;padding-left:18px}
+.chat-sugg{display:flex;flex-wrap:wrap;gap:6px}
+.chat-sugg button{font:600 13px var(--body);border:1.5px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:5px 10px;cursor:pointer;text-align:left}
+#chatForm{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+#chatForm textarea{flex:1;resize:none;font:inherit;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:var(--screen);color:var(--ink);height:44px}
+#chatForm button{font:700 14px var(--body);background:var(--ink);color:var(--screen);border:0;border-radius:10px;padding:0 14px;cursor:pointer}
+#chatForm button:disabled{opacity:.5}
+.typing{color:var(--muted);font-style:italic}
+@media (max-width:900px){ .cal-body{grid-template-columns:1fr} }
+@media (max-width:620px){
+  .cal-day{min-height:46px;align-items:center;justify-content:center;padding:3px}
+  .cal-day .ev,.cal-day .more{display:none}
+  .cal-day .cnt{display:block;font:700 11px var(--body);background:var(--turmeric);color:#1F1B2C;border-radius:999px;padding:0 6px}
+  .cal-day .dn{align-self:center}
+  #chatBtn{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  #chatPanel{right:8px;left:8px;width:auto;bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+}
 /* industry picker */
 .region{margin:34px 0 0}
 .region h2{font-size:24px;margin-bottom:8px}
@@ -142,6 +206,7 @@ footer p{max-width:80ch;margin:4px 0}
     <form class="search" role="search" onsubmit="event.preventDefault();go('#/search/'+encodeURIComponent(this.q.value.trim()))">
       <input name="q" id="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
     </form>
+    <a class="nav-link" href="#/upcoming">Coming soon</a>
     <div class="acct" id="acct"></div>
   </header>
 
@@ -163,6 +228,12 @@ footer p{max-width:80ch;margin:4px 0}
   </footer>
 </div>
 <div class="tip" id="tip" aria-hidden="true"></div>
+<button id="chatBtn" type="button" aria-expanded="false" aria-controls="chatPanel">Ask about any film</button>
+<section id="chatPanel" hidden aria-label="Film assistant">
+  <header><b>Pujiverse assistant</b><button type="button" id="chatClose" aria-label="Close assistant">×</button></header>
+  <div id="chatLog" aria-live="polite"></div>
+  <form id="chatForm"><textarea id="chatInput" placeholder="Ask about films, actors, release dates…" aria-label="Your question" maxlength="1500"></textarea><button type="submit">Send</button></form>
+</section>
 
 <dialog id="authDlg">
   <form method="dialog" id="authForm" class="rate-form">
@@ -206,10 +277,53 @@ const go = h => { location.hash = h; };
 const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>a+b.toUpperCase()) : s;
 const REGIONS = ["India","South Asia","East & Southeast Asia","Americas","Europe","Middle East & Africa","Oceania"];
 let user = null, industries = [], indBySlug = {}, cur = { ind:null, years:[] };
-const LIST_COLS = "type,seasons,network,title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us";
+const LIST_COLS = "type,seasons,network,title_id,title,title_telugu,title_local,industry,year,release_date,genre,director,poster_url,rating_display,streaming_in,streaming_us,languages,language,status";
 const tidy = t => t ? String(t).replace(/\s*\([^)]*\)\s*$/,"").trim() : t;
+const isQid = t => /^Q\d+$/.test(String(t || ""));
 const local = f => { const l = tidy(f.title_local || f.title_telugu); return l && l !== tidy(f.title) ? l : null; };
 const realDate = d => d && !d.endsWith("-01-01");
+const TODAY = new Date().toISOString().slice(0, 10);
+const daysUntil = d => Math.round((new Date(d + "T00:00") - new Date(TODAY + "T00:00")) / 86400000);
+const IND_LANG = { tollywood:"Telugu", bollywood:"Hindi", kollywood:"Tamil", mollywood:"Malayalam", sandalwood:"Kannada", "bengali-tollywood":"Bengali",
+  marathi:"Marathi", pollywood:"Punjabi", dhollywood:"Gujarati", ollywood:"Odia", jollywood:"Assamese", bhojiwood:"Bhojpuri", chhollywood:"Chhattisgarhi",
+  coastalwood:"Tulu", konkani:"Konkani", manipuri:"Manipuri", rajasthani:"Rajasthani", haryanvi:"Haryanvi" };
+let langNames; try { langNames = new Intl.DisplayNames(["en"], { type: "language" }); } catch { langNames = null; }
+function langName(x){
+  x = String(x || "").trim(); if (!x || x === "xx" || /^no language$/i.test(x)) return null;
+  let n = x;
+  if (/^[a-z]{2,3}$/.test(x) && langNames) { try { n = langNames.of(x) || x; } catch { n = x; } }
+  return ({ Bangla:"Bengali", "Odia (India)":"Odia" })[n] || n;
+}
+function langSet(rows){
+  const set = new Set();
+  for (const r of rows) {
+    for (const part of [r.language, r.languages].filter(Boolean).join(", ").split(/\s*,\s*/)) { const n = langName(part); if (n) set.add(n); }
+    if (IND_LANG[r.industry]) set.add(IND_LANG[r.industry]);
+  }
+  return [...set];
+}
+function icsFile(f){
+  const d = f.release_date.replace(/-/g, ""), next = new Date(f.release_date + "T00:00"); next.setDate(next.getDate() + 1);
+  const d2 = next.toISOString().slice(0, 10).replace(/-/g, ""), stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const txt = s => String(s || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, " ");
+  const url = location.origin + location.pathname + "#/film/" + encodeURIComponent(f.title_id);
+  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Pujiverse Films//EN","BEGIN:VEVENT",`UID:${f.title_id}@pujiverse-films`,`DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${d}`,`DTEND;VALUE=DATE:${d2}`,`SUMMARY:${txt(tidy(f.title))} releases`,`DESCRIPTION:${txt((f.overview || "").slice(0, 400))} ${url}`,
+    `URL:${url}`,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+}
+const icsRows = {};
+function addToCalendar(id){
+  const f = icsRows[id]; if (!f) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([icsFile(f)], { type: "text/calendar" }));
+  a.download = tidy(f.title).replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 60) + ".ics";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function icsButton(f){
+  if (!f.release_date || f.release_date <= TODAY) return "";
+  icsRows[f.title_id] = f;
+  return `<button type="button" class="icsbtn" onclick="addToCalendar('${esc(f.title_id)}')">+ Add to calendar</button>`;
+}
 const SEARCH_URL = {
   "Netflix": q => `https://www.netflix.com/search?q=${q}`,
   "Prime Video": q => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
@@ -271,8 +385,21 @@ async function viewPicker(){
 }
 
 /* ---------- year strip for one industry ---------- */
-async function buildStrip(slug, kind = "film"){
-  if (cur.ind === slug && cur.kind === kind && cur.years.length) return true;
+let upcomingCounts = null;
+async function setTabs(slug, tab){
+  const ind = indBySlug[slug]; if (!ind) return;
+  if (!upcomingCounts) {
+    const { data } = await safe(tq("select industry, count(*) as n from titles where release_date > ? group by industry", [TODAY]));
+    upcomingCounts = Object.fromEntries((data || []).map(r => [r.industry, r.n]));
+  }
+  const up = upcomingCounts[slug] || 0;
+  $("#crumbs").innerHTML = `<a href="#/">All industries</a> / ${esc(ind.region)}
+    <span class="tabs"><a class="chip" href="#/i/${slug}" aria-pressed="${tab==="film"}">Films${ind.films_loaded ? ` · ${ind.films_loaded.toLocaleString()}` : ""}</a>
+    <a class="chip" href="#/i/${slug}/series" aria-pressed="${tab==="series"}">Web series${ind.series_loaded ? ` · ${ind.series_loaded.toLocaleString()}` : ""}</a>
+    <a class="chip" href="#/i/${slug}/upcoming" aria-pressed="${tab==="upcoming"}">Coming soon${up ? ` · ${up}` : ""}</a></span>`;
+}
+async function buildStrip(slug, kind = "film", tab){
+  if (cur.ind === slug && cur.kind === kind && cur.years.length) { await setTabs(slug, tab || kind); return true; }
   await loadIndustries();
   const ind = indBySlug[slug];
   if (!ind) { $("#view").innerHTML = `<p class="empty">That industry isn't listed. <a href="#/">Pick one</a>.</p>`; return false; }
@@ -280,9 +407,7 @@ async function buildStrip(slug, kind = "film"){
   cur = { ind: slug, kind, years: data || [] };
   $("#stripSec").hidden = false;
   const sPath = kind === "series" ? "/series" : "";
-  $("#crumbs").innerHTML = `<a href="#/">All industries</a> / ${esc(ind.region)}
-    <span class="tabs"><a class="chip" href="#/i/${slug}" aria-pressed="${kind!=="series"}">Films${ind.films_loaded ? ` · ${ind.films_loaded.toLocaleString()}` : ""}</a>
-    <a class="chip" href="#/i/${slug}/series" aria-pressed="${kind==="series"}">Web series${ind.series_loaded ? ` · ${ind.series_loaded.toLocaleString()}` : ""}</a></span>`;
+  await setTabs(slug, tab || kind);
   const total = cur.years.reduce((a,b)=>a+b.films,0);
   const short = ind.name.replace(/ cinema$/,""), noun = kind === "series" ? "web series" : "films";
   $("#stripTitle").textContent = total ? `${total.toLocaleString()} ${short} ${noun} since ${cur.years[0].year}` : `${short} ${noun}: coming soon`;
@@ -325,13 +450,17 @@ function filmRow(f, showInd, showYear){
   const seriesTag = f.type === "series" ? [f.network ? f.network.split(", ")[0] : null, f.seasons ? `${f.seasons} season${f.seasons>1?"s":""}` : null].filter(Boolean).join(" · ") : null;
   const matched = f.match_field && f.match_field !== "title" ? `Matched ${f.match_field}` : null;
   const meta = [when, f.type === "series" ? "Web series" : null, seriesTag, f.director, g(f.genre), matched].filter(Boolean).map(esc).join(" · ");
+  const upDays = f.release_date && f.release_date > TODAY ? daysUntil(f.release_date) : null;
+  const langs = langSet([f]);
+  const badges = (upDays != null ? `<span class="badge soon">${upDays === 1 ? "Tomorrow" : upDays < 45 ? `In ${upDays} days` : "Coming soon"}</span>` : "")
+    + (langs.length > 1 ? `<span class="badge" title="${esc(langs.join(", "))}">${langs.length} languages</span>` : "");
   return `<li>
     ${f.poster_url ? `<img class="poster-sm" src="${esc(f.poster_url.replace("/w500/","/w92/"))}" alt="" loading="lazy">` : `<span class="poster-sm" aria-hidden="true"></span>`}
     <div>
-      <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(tidy(f.title))}</a>
+      <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(isQid(f.title) ? (tidy(f.title_local || f.original_title) || "Untitled") : tidy(f.title))}</a>
       ${local(f) ? ` <span class="te">${esc(local(f))}</span>` : ""}
-      ${showInd && indBySlug[f.industry] ? `<span class="ind-tag">${esc(indBySlug[f.industry].name)}</span>` : ""}
-      <div class="meta">${meta}</div>
+      ${showInd && indBySlug[f.industry] ? `<span class="ind-tag">${esc(indBySlug[f.industry].name)}</span>` : ""}${badges}
+      <div class="meta">${meta}</div>${upDays != null ? icsButton(f) : ""}
     </div>
     <div class="where">${score}${where.map(w=>`<b>${esc(w)}</b>`).join("")}</div>
   </li>`;
@@ -389,6 +518,8 @@ async function viewList(slug, from, to, opts, kind = "film"){
       <a class="chip" href="${hashWith(base,{sort:opts.sort})}" aria-pressed="${!stream}">All films</a>
       <a class="chip" href="${hashWith(base,{sort:opts.sort, stream:"1"})}" aria-pressed="${stream}">Streaming now</a>
     </div>
+    ${single ? `<section class="cal-wrap" id="cal"><h3>Release calendar ${from}</h3><p class="sub" id="calNote">Loading release dates…</p></section>` : ""}
+    ${single ? `<h3 class="list-h" id="fullList">All ${isS ? "web series" : "films"} of ${from}</h3>` : ""}
     <form class="filters" id="listForm">
       <label>From <input class="field" name="from" type="number" min="1880" max="2030" value="${from}"></label>
       <label>To <input class="field" name="to" type="number" min="1880" max="2030" value="${to}"></label>
@@ -416,6 +547,111 @@ async function viewList(slug, from, to, opts, kind = "film"){
     $("#more").innerHTML = data.length === PAGE
       ? `<p class="meta">Showing ${shown.toLocaleString()} of ${(stream ? streaming : total).toLocaleString()}</p><button class="btn" id="moreBtn">Show ${PAGE} more</button>`
       : (shown ? `<p class="meta">Showing all ${shown.toLocaleString()} films.</p>` : `<p class="empty">No films match. Switch to "All films" or widen the years.</p>`);
+    const mb = $("#moreBtn"); if (mb) mb.onclick = load;
+  };
+  if (single) loadCalendar(slug, from, isS);
+  await load();
+}
+
+/* ---------- release calendar ---------- */
+let calSeq = 0;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+async function loadCalendar(slug, year, isS){
+  const seq = ++calSeq;
+  const { data, error } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and year = ? and type ${isS ? "=" : "<>"} 'series'
+    and release_date between ? and ? and substr(release_date, 6) <> '01-01' order by release_date, coalesce(tmdb_votes,0) desc limit 6000`,
+    [slug, year, `${year}-01-01`, `${year}-12-31`]));
+  const box = $("#cal"); if (!box || seq !== calSeq) return;
+  if (error) { $("#calNote").textContent = "The calendar didn't load. Refresh to try again."; return; }
+  const noun = isS ? "web series" : "films";
+  const total = cur.years.find(d => d.year === year)?.films || 0;
+  const undated = Math.max(0, total - data.length);
+  if (!data.length) { $("#calNote").innerHTML = `None of the ${total.toLocaleString()} ${noun} from ${year} have an exact release date yet, so the calendar is empty. They're all in the list below.`; return; }
+  $("#calNote").innerHTML = `${data.length.toLocaleString()} ${noun} with an exact release date.` +
+    (undated ? ` ${undated.toLocaleString()} more only have a year; they're in the <a href="#" onclick="document.getElementById('fullList').scrollIntoView({behavior:'smooth'});return false">full list</a>.` : "");
+  renderCalendar(box, data, [...Array(12)].map((_, i) => `${year}-${String(i + 1).padStart(2, "0")}`), false);
+}
+function renderCalendar(box, rows, monthKeys, showInd){
+  const byDay = {}; rows.forEach(r => (byDay[r.release_date] ||= []).push(r));
+  const perMonth = {}; rows.forEach(r => { const k = r.release_date.slice(0, 7); perMonth[k] = (perMonth[k] || 0) + 1; });
+  const multiYear = new Set(monthKeys.map(k => k.slice(0, 4))).size > 1;
+  const nowKey = TODAY.slice(0, 7);
+  let month = perMonth[nowKey] && monthKeys.includes(nowKey) ? nowKey : monthKeys.find(k => perMonth[k]);
+  let day = null;
+  box.querySelectorAll(".cal-months,.cal-body").forEach(n => n.remove());
+  const chips = document.createElement("div"); chips.className = "cal-months"; chips.setAttribute("role", "tablist");
+  const body = document.createElement("div"); body.className = "cal-body";
+  box.append(chips, body);
+  const draw = () => {
+    chips.innerHTML = monthKeys.map(k => { const [y, m] = k.split("-"), n = perMonth[k] || 0;
+      return `<button type="button" role="tab" data-k="${k}" aria-pressed="${k === month}" ${n ? "" : "disabled"}>${MONTHS[+m - 1]}${multiYear ? " " + y : ""}<small>${n || ""}</small></button>`; }).join("");
+    const [y, m] = month.split("-").map(Number), first = new Date(y, m - 1, 1).getDay(), days = new Date(y, m, 0).getDate();
+    const dayKeys = [...Array(days)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+    if (!day || !day.startsWith(month)) day = dayKeys.find(k => k >= TODAY && byDay[k]) || dayKeys.find(k => byDay[k]);
+    const cells = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => `<div class="dow">${d}</div>`).join("")
+      + `<div class="cal-day empty"></div>`.repeat(first)
+      + dayKeys.map((k, i) => { const list = byDay[k] || [];
+          return list.length
+            ? `<button type="button" class="cal-day has${k === TODAY ? " today" : ""}" data-d="${k}" aria-pressed="${k === day}" aria-label="${MONTHS[m - 1]} ${i + 1}: ${list.length} titles">
+                <span class="dn">${i + 1}</span>${list.slice(0, 2).map(r => `<span class="ev">${esc(tidy(r.title))}</span>`).join("")}
+                ${list.length > 2 ? `<span class="more">+${list.length - 2} more</span>` : ""}<span class="cnt">${list.length}</span></button>`
+            : `<div class="cal-day${k === TODAY ? " today" : ""}"><span class="dn">${i + 1}</span></div>`; }).join("");
+    const list = byDay[day] || [];
+    const label = day ? new Date(day + "T00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "";
+    body.innerHTML = `<div class="cal-grid">${cells}</div>
+      <aside class="cal-side" aria-live="polite"><h4>${esc(label)}</h4><p class="meta" style="margin:0 0 6px">${list.length} release${list.length === 1 ? "" : "s"}</p>
+      <ul class="films">${list.map(f => filmRow(f, showInd, false)).join("")}</ul></aside>`;
+  };
+  chips.onclick = e => { const b = e.target.closest("button[data-k]"); if (!b || b.disabled) return; month = b.dataset.k; day = null; draw(); };
+  body.onclick = e => { const b = e.target.closest(".cal-day.has"); if (!b) return; day = b.dataset.d; draw();
+    if (innerWidth <= 900) body.querySelector(".cal-side").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+  draw();
+}
+
+/* ---------- coming soon ---------- */
+async function viewUpcoming(slug, opts){
+  let name = "";
+  if (slug) { if (!(await buildStrip(slug, "film", "upcoming"))) return; markYear(null); name = indBySlug[slug].name.replace(/ cinema$/, ""); }
+  else { $("#stripSec").hidden = true; cur = { ind: null, years: [] }; await loadIndustries(); }
+  const pick = slug || opts.ind || "";
+  const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i => i.region === r).map(i => `<option value="${i.slug}" ${pick === i.slug ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
+  $("#view").innerHTML = `
+    ${slug ? "" : `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>`}
+    <h2>${slug ? `Coming soon: ${esc(name)}` : "Coming soon"}</h2>
+    <p class="sub">Films with a confirmed release date after today, soonest first. Dates can change, so check back.</p>
+    ${slug ? "" : `<form class="filters" id="upForm"><label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label></form>`}
+    <section class="cal-wrap" id="cal"><h3>Release calendar</h3><p class="sub" id="calNote">Loading release dates…</p></section>
+    <h3 class="list-h">Upcoming list</h3>
+    <div id="upList"></div><div id="more"></div>`;
+  const f = $("#upForm"); if (f) f.ind.onchange = () => go(hashWith("#/upcoming", { ind: f.ind.value }));
+  const where = `release_date > ? ${pick ? "and industry = ?" : ""}`, args = pick ? [TODAY, pick] : [TODAY];
+  const seq = ++calSeq;
+  const [{ data: calRows }, { data: cnt }] = await Promise.all([
+    safe(tq(`select ${LIST_COLS} from titles where ${where} order by release_date, coalesce(tmdb_votes,0) desc limit 4000`, args)),
+    safe(tq(`select count(*) as n from titles where ${where}`, args))]);
+  if (seq !== calSeq) return;
+  const totalUp = cnt?.[0]?.n ?? calRows?.length ?? 0;
+  if (calRows?.length) {
+    const keys = []; const end = calRows[calRows.length - 1].release_date.slice(0, 7);
+    for (let d = new Date(TODAY.slice(0, 7) + "-01T00:00"); ; d.setMonth(d.getMonth() + 1)) {
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; keys.push(k); if (k >= end || keys.length > 30) break; }
+    $("#calNote").textContent = `${totalUp.toLocaleString()} upcoming release${totalUp === 1 ? "" : "s"}. Pick a month, then a day.`;
+    renderCalendar($("#cal"), calRows, keys, !slug);
+  } else $("#calNote").textContent = "No upcoming releases are listed for this industry yet.";
+  let off = 0, lastMonth = null;
+  const load = async () => {
+    const { data, error } = await safe(tq(`select ${LIST_COLS} from titles where ${where} order by release_date, coalesce(tmdb_votes,0) desc limit 100 offset ?`, [...args, off]));
+    if (error) { $("#more").innerHTML = `<p class="empty">The list didn't load. Refresh to try again.</p>`; return; }
+    let html = "";
+    for (const r of data) {
+      const mk = r.release_date.slice(0, 7);
+      if (mk !== lastMonth) { if (lastMonth) html += "</ul>"; lastMonth = mk;
+        html += `<h4 class="mhead">${new Date(mk + "-01T00:00").toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h4><ul class="films">`; }
+      html += filmRow(r, !slug, true);
+    }
+    if (lastMonth && data.length) html += "</ul>";
+    $("#upList").insertAdjacentHTML("beforeend", html); off += data.length;
+    $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show 100 more</button>` : (off ? "" : `<p class="empty">Nothing scheduled yet.</p>`);
     const mb = $("#moreBtn"); if (mb) mb.onclick = load;
   };
   await load();
@@ -489,18 +725,31 @@ async function viewFilm(id){
   const fact = (k,v) => v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : "";
   const list = s => (s||"").split(", ").filter(Boolean).map(w=>`<b style="display:inline-block;background:var(--turmeric-soft);padding:3px 10px;border-radius:4px;margin:3px 6px 3px 0;font-weight:600">${esc(w)}</b>`).join("");
   const ind = indBySlug[f.industry];
+  let versions = [f];
+  if (f.tmdb_id || f.imdb_id) {
+    const { data: vs } = await safe(tq(`select title_id, industry, language, languages from titles
+      where (tmdb_id = ? and ? is not null) or (imdb_id = ? and ? is not null) limit 30`, [f.tmdb_id, f.tmdb_id, f.imdb_id, f.imdb_id]));
+    if (vs?.length) versions = vs;
+  }
+  const langs = langSet(versions);
+  const others = versions.filter(v => v.title_id !== f.title_id && v.industry !== f.industry);
+  const upcoming = f.release_date && f.release_date > TODAY;
   $("#view").innerHTML = `
   <article class="film">
     <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
     <div>
       <h1>${esc(tidy(f.title))}</h1>
       ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
+      ${upcoming ? `<p style="margin:10px 0 0"><span class="badge soon" style="margin:0">Releases in ${daysUntil(f.release_date)} day${daysUntil(f.release_date) === 1 ? "" : "s"}</span> ${icsButton(f)}</p>` : ""}
+      ${langs.length ? `<p style="margin:10px 0 0"><span class="badge" style="margin:0">Available in ${langs.length} language${langs.length === 1 ? "" : "s"}</span></p>` : ""}
       <dl class="facts">
         ${fact("Industry", ind?.name)}${fact("Format", f.type === "series" ? "Web series" : null)}${fact("Network", f.network)}${fact("Seasons", f.seasons ? `${f.seasons} (${f.episodes || "?"} episodes)` : null)}${fact("Status", f.series_status)}${fact("Created by", f.creators)}${fact("Year", f.year ? String(f.year) : null)}
         ${fact(f.type === "series" ? "Premiered" : "Released", realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}) : null)}
-        ${fact("Director", f.director)}${fact("Cast", f.cast)}${fact("Genre", g(f.genre))}${fact("Language", f.language && f.language.length > 3 ? f.language : null)}
+        ${fact("Director", f.director)}${fact("Cast", f.cast)}${fact("Genre", g(f.genre))}${fact(langs.length === 1 ? "Language" : "Languages", langs.join(", ") || null)}
         ${fact("Runtime", f.runtime_min ? f.runtime_min + " min" : null)}${fact("Production", f.production)}
+        ${others.length ? `<dt>Also listed as</dt><dd>${others.map(o => `<a href="#/film/${encodeURIComponent(o.title_id)}">${esc(indBySlug[o.industry]?.name || o.industry)}</a>`).join(", ")}</dd>` : ""}
       </dl>
+      ${langs.length > 1 ? `<p class="meta" style="margin:-10px 0 16px">Languages come from TMDB's spoken languages and from versions of this film listed under other industries.</p>` : ""}
       ${f.overview ? `<p class="overview">${esc(f.overview)}</p>` : `<p class="sub">No story summary yet.</p>`}
       <section class="panel"><h3>Where to watch</h3>
         ${f.streaming_in ? `<p style="margin:0 0 6px"><strong>India:</strong> ${watchChips(f.streaming_in, f, f.watch_link_in)}</p>` : ""}
@@ -584,6 +833,52 @@ $("#authForm").addEventListener("submit", async e => {
 });
 sb.auth.onAuthStateChange((_e, session) => { const was = user?.id; user = session?.user ?? null; renderAcct(); if (was !== user?.id) route(); });
 
+/* ---------- chat assistant ---------- */
+const CHAT_API = /(^|\.)vercel\.app$|^localhost$/.test(location.hostname) && location.hostname !== "pujiverse.github.io"
+  ? "/api/chat" : "https://movies-pujiverse.vercel.app/api/chat";
+const SUGGEST = ["Upcoming Telugu films this month", "Top rated Malayalam films of 2023", "Which films did S. S. Rajamouli direct?", "Korean web series on Netflix"];
+let chatMsgs = []; try { chatMsgs = JSON.parse(sessionStorage.getItem("pfChat") || "[]"); } catch { chatMsgs = []; }
+function md(text){
+  let h = esc(text);
+  h = h.replace(/\[([^\]]+)\]\((#\/[^)\s]+|https:\/\/[^)\s]+)\)/g, (m, t, u) => `<a href="${u}"${u.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`)
+       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  const lines = h.split("\n"); let out = "", inList = false;
+  for (const l of lines) {
+    const li = l.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)/);
+    if (li) { if (!inList) { out += "<ul>"; inList = true; } out += `<li>${li[1]}</li>`; }
+    else { if (inList) { out += "</ul>"; inList = false; } out += l.trim() ? l + "<br>" : "<br>"; }
+  }
+  return (inList ? out + "</ul>" : out).replace(/(<br>)+$/, "");
+}
+function drawChat(pending){
+  const log = $("#chatLog");
+  log.innerHTML = (chatMsgs.length ? "" : `<div class="msg-a">Hi! Ask me anything about the ${industries.reduce((a, b) => a + (b.films_loaded || 0), 0).toLocaleString() || "400,000+"} films and web series here: release dates, cast, directors, where to stream, what's coming soon.</div>
+      <div class="chat-sugg">${SUGGEST.map(q => `<button type="button">${esc(q)}</button>`).join("")}</div>`)
+    + chatMsgs.map(m => `<div class="${m.role === "user" ? "msg-u" : "msg-a"}">${m.role === "user" ? esc(m.content) : md(m.content)}</div>`).join("")
+    + (pending ? `<div class="msg-a typing">Looking that up…</div>` : "");
+  log.scrollTop = log.scrollHeight;
+}
+async function sendChat(q){
+  q = q.trim(); if (!q) return;
+  chatMsgs.push({ role: "user", content: q }); drawChat(true);
+  const btn = $("#chatForm button"); btn.disabled = true;
+  try {
+    const r = await fetch(CHAT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: chatMsgs.slice(-12) }) });
+    const d = await r.json().catch(() => ({}));
+    chatMsgs.push({ role: "assistant", content: d.answer || d.error || "Something went wrong. Try again in a moment." });
+  } catch { chatMsgs.push({ role: "assistant", content: "I couldn't reach the assistant. Check your connection and try again." }); }
+  btn.disabled = false;
+  try { sessionStorage.setItem("pfChat", JSON.stringify(chatMsgs.slice(-30))); } catch {}
+  drawChat(false);
+}
+$("#chatBtn").onclick = () => { const p = $("#chatPanel"), open = p.hidden; p.hidden = !open; $("#chatBtn").setAttribute("aria-expanded", String(open));
+  if (open) { drawChat(false); $("#chatInput").focus(); } };
+$("#chatClose").onclick = () => { $("#chatPanel").hidden = true; $("#chatBtn").setAttribute("aria-expanded", "false"); $("#chatBtn").focus(); };
+$("#chatLog").onclick = e => { const b = e.target.closest(".chat-sugg button"); if (b) sendChat(b.textContent);
+  if (e.target.closest('a[href^="#/"]') && innerWidth <= 620) $("#chatPanel").hidden = true; };
+$("#chatForm").onsubmit = e => { e.preventDefault(); const t = $("#chatInput"); const q = t.value; t.value = ""; sendChat(q); };
+$("#chatInput").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#chatForm").requestSubmit(); } };
+
 /* ---------- router ---------- */
 async function route(){
   const { path, p } = parseHash(); const opts = Object.fromEntries(p.entries()); let m;
@@ -592,6 +887,8 @@ async function route(){
   else if ((m = path.match(/^#\/i\/([\w-]+)\/series\/year\/(\d{4})$/))) await viewList(m[1], +m[2], +m[2], opts, "series");
   else if ((m = path.match(/^#\/i\/([\w-]+)\/series\/years\/(\d{4})-(\d{4})$/))) await viewList(m[1], +m[2], +m[3], opts, "series");
   else if ((m = path.match(/^#\/i\/([\w-]+)\/series\/?$/))) await viewSeries(m[1]);
+  else if ((m = path.match(/^#\/i\/([\w-]+)\/upcoming\/?$/))) await viewUpcoming(m[1], opts);
+  else if (path === "#/upcoming") await viewUpcoming(null, opts);
   else if ((m = path.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
   else if ((m = path.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
   else if ((m = path.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]), opts);

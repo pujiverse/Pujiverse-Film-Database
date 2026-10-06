@@ -22,6 +22,10 @@
 - **Community ratings:** signed-in users give an overall score and a separate story score (1–10) with an optional review. One rating per user per film, editable.
 - **Duplicate reporting:** users can flag a film listed twice.
 - **Original-script titles:** Telugu, Hindi, Tamil, Korean, Japanese and others appear next to the English title.
+- **Release calendar:** click any year on the bar chart and a month-by-month calendar appears above the list. Pick a month, then a day, to see everything released that day. Titles that only have a known year stay in the full list.
+- **Coming soon:** a site-wide upcoming page (`#/upcoming`) and a Coming soon tab on every industry, with a calendar, a month-by-month list, "In N days" badges and **Add to calendar** (.ics) buttons.
+- **Languages:** each film shows how many languages it's available in, combining TMDB's spoken languages with versions of the same film listed under other industries (for example a Telugu film also released in Tamil).
+- **Ask about any film:** a chat assistant that answers questions from the database itself. It writes read-only SQL against the Turso catalog through one tool, so answers come from your data, with links to each film.
 - **Light and dark mode, mobile layout, keyboard accessible.**
 
 ## Coverage
@@ -57,6 +61,8 @@ The website is a single static `index.html` that queries both directly from the 
 
 ```
 ├── index.html                     # the whole website (HTML + CSS + JS, no build step)
+├── api/chat.js                    # chat assistant (Vercel serverless function, read-only SQL tool)
+├── vercel.json, .vercelignore     # deploy as a static site plus the /api function
 ├── .nojekyll                      # tells GitHub Pages to serve files as-is
 ├── .env.example                   # template for pipeline secrets (copy to .env, never commit)
 ├── turso/
@@ -72,6 +78,9 @@ The website is a single static `index.html` that queries both directly from the 
     ├── tmdb_series.py             # 3. web series from TMDB           -> out/<industry>_series.csv
     ├── load_to_turso.py           # 4. upload CSVs into Turso and refresh year counts
     ├── enrich_turso.py            # 5. posters, stories, ratings, where-to-watch from TMDB (resumable)
+    ├── fetch_upcoming.py          # 6. upcoming releases per industry from TMDB (run monthly)
+    ├── wiki_dates.py              # exact Indian release dates from Wikipedia year lists
+    ├── fix_untitled.py            # replace titles that are only a Wikidata ID with real names
     ├── turso_client.py            # small Turso HTTP client used by the scripts
     └── requirements.txt
 ```
@@ -121,6 +130,26 @@ python enrich_turso.py --seconds 3600 --search   # then titles without IDs, by t
 ```
 
 Uploads are insert-or-ignore on `title_id`, and enrichment only fills empty fields, so reruns are always safe.
+
+### 5. Chat assistant (optional)
+
+The assistant runs as a Vercel serverless function (`api/chat.js`), so it works on the Vercel deployment and the GitHub Pages site calls it there. In **Vercel → Project → Settings → Environment Variables** add:
+
+| Name | Value |
+|---|---|
+| `TURSO_URL` | `libsql://<db>-<org>.<region>.turso.io` |
+| `TURSO_READ_TOKEN` | a **read-only** Turso token |
+| `GEMINI_API_KEY` | free key from [aistudio.google.com](https://aistudio.google.com) (or set `ANTHROPIC_API_KEY` instead) |
+| `LLM_MODEL` | optional model override; defaults are `gemini-2.5-flash` / `claude-haiku-4-5-20251001` |
+
+Redeploy after adding them. In `index.html`, `CHAT_API` points GitHub Pages visitors to `https://<your-project>.vercel.app/api/chat`; the allowed origins are listed at the top of `api/chat.js`. The function only accepts single `SELECT` queries, caps results at 60 rows, and rate-limits each visitor to 20 questions per 10 minutes.
+
+### 6. Keeping upcoming releases fresh
+
+```bash
+python fetch_upcoming.py            # every industry, next 18 months, month by month
+```
+Run it every few weeks. It adds newly announced films and updates dates, stories, posters and languages for ones already listed.
 
 ## Security
 
