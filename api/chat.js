@@ -6,7 +6,7 @@
 //   GEMINI_API_KEY     (free tier at aistudio.google.com)   — or —   ANTHROPIC_API_KEY
 //   LLM_MODEL          optional; defaults: gemini-3.5-flash-lite / claude-haiku-4-5-20251001
 
-const ALLOWED_ORIGINS = ["https://cinema.pujiverse.com", "https://pujiverse.github.io", "https://movies-pujiverse.vercel.app", "http://localhost:8000"];
+const ALLOWED_ORIGINS = ["https://cinema.pujiverse.com", "https://movies.pujiverse.com", "https://pujiverse.github.io", "https://movies-pujiverse.vercel.app", "http://localhost:8000"];
 const MAX_ROUNDS = 6, ROW_LIMIT = 60, MAX_RESULT_CHARS = 14000;
 const hits = new Map();                                     // best-effort per-IP rate limit
 
@@ -92,7 +92,7 @@ async function askAnthropic(history) {
 }
 
 async function askGemini(history) {
-  const models = [process.env.LLM_MODEL || "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+  const models = [...new Set([process.env.LLM_MODEL || "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.1-flash-lite"])];
   const contents = history.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
   const tools = [{ functionDeclarations: [{ name: "run_sql", description: TOOL_DESC,
     parameters: { type: "object", properties: { sql: { type: "string" } }, required: ["sql"] } }] }];
@@ -104,7 +104,7 @@ async function askGemini(history) {
         body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt() }] }, contents, tools,
           generationConfig: { temperature: 0.2, maxOutputTokens: 1200 } }) });
       data = await r.json().catch(() => ({}));
-      if (r.status !== 429 && r.status !== 503 && r.status !== 404) break;
+      if (r.ok) break;   // quota hit, model retired or unavailable: try the next one
     }
     if (r.status === 429 || r.status === 503) { const e = new Error("busy"); e.busy = true; throw e; }
     if (!r.ok) throw new Error(data.error?.message || `Gemini API error ${r.status}`);
