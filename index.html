@@ -209,6 +209,7 @@ footer p{max-width:80ch;margin:4px 0}
   .film{grid-template-columns:1fr}
   .film img.poster{max-width:220px}
 }
+@media (max-width:620px){ header.top .search{flex:1 1 100%;order:5} header.top{gap:10px 18px} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -219,6 +220,7 @@ footer p{max-width:80ch;margin:4px 0}
     <form class="search" role="search" onsubmit="event.preventDefault();go('#/search/'+encodeURIComponent(this.q.value.trim()))">
       <input name="q" id="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
     </form>
+    <a class="nav-link" href="https://www.pujiverse.com/" title="Go to the official Pujiverse website">Pujiverse home</a>
     <a class="nav-link" href="#/upcoming">Coming soon</a>
     <div class="acct" id="acct"></div>
   </header>
