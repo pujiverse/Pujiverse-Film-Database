@@ -104,6 +104,19 @@ footer p{max-width:80ch;margin:4px 0}
 #more{padding:18px 0}
 .tabs{display:inline-flex;gap:8px;margin-left:12px;vertical-align:middle;flex-wrap:wrap}
 .tabs .chip{font-size:13px;padding:4px 11px}
+.watch-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.watch-actions .btn{text-decoration:none;font-size:14px;padding:7px 14px}
+.gsearch{font:600 12px var(--body);color:var(--muted);text-decoration:none;white-space:nowrap}
+.gsearch:hover{color:var(--ink);text-decoration:underline}
+.filters .field[type=date]{min-width:150px}
+.filters .check{display:flex;align-items:center;gap:8px;font:600 14px var(--body);color:var(--ink);padding-bottom:8px}
+.filters .check input{width:18px;height:18px;accent-color:var(--maroon)}
+.filters .actions{display:flex;gap:8px;align-items:center}
+.filters .linkbtn{border:0;background:none;color:var(--muted);font:600 14px var(--body);cursor:pointer;text-decoration:underline;padding:8px 4px}
+.films li.divider{display:block;font:700 16px var(--display);color:var(--muted);padding:22px 0 8px;border-bottom:1.5px solid var(--ink)}
+.films li.divider small{display:block;font:400 14px var(--body);margin-top:2px}
+.active-filters{font-size:14px;color:var(--muted);margin:-8px 0 14px}
+.strip-note{font-size:14px;color:var(--muted);margin:6px 0 0;max-width:80ch}
 /* release calendar */
 .cal-wrap{margin:6px 0 26px}
 .cal-wrap h3{font:800 22px/1.2 var(--display);margin:0 0 4px}
@@ -217,7 +230,8 @@ footer p{max-width:80ch;margin:4px 0}
       <p id="stripNote">Each bar is one year. Taller bars mean more films. Pick a year to see its films.</p>
     </div>
     <div class="strip-scroll" id="stripScroll"><div class="strip" id="strip" role="list" aria-label="Years"></div></div>
-    <div class="strip-legend"><span>Films released</span><span class="s">Share streaming now</span></div>
+    <div class="strip-legend"></div>
+    <p class="strip-note" id="stripNote2"></p>
   </section>
 
   <main id="view" tabindex="-1"></main>
@@ -332,8 +346,46 @@ const SEARCH_URL = {
   "Apple TV": q => `https://tv.apple.com/search?term=${q}`, "Apple TV+": q => `https://tv.apple.com/search?term=${q}`,
   "Tubi TV": q => `https://tubitv.com/search/${q}`, "Tubi": q => `https://tubitv.com/search/${q}`,
   "JioHotstar": q => `https://www.hotstar.com/in/explore?search_query=${q}`,
-  "Zee5": q => `https://www.zee5.com/search?q=${q}`
+  "Zee5": q => `https://www.zee5.com/search?q=${q}`, "ZEE5": q => `https://www.zee5.com/search?q=${q}`,
+  "Hulu": q => `https://www.hulu.com/search?q=${q}`, "Max": q => `https://play.max.com/search?q=${q}`,
+  "Peacock": q => `https://www.peacocktv.com/search?q=${q}`, "Paramount+": q => `https://www.paramountplus.com/search/?q=${q}`,
+  "Pluto TV": q => `https://pluto.tv/search/details?query=${q}`, "MUBI": q => `https://mubi.com/en/search/films?query=${q}`,
+  "Kanopy": q => `https://www.kanopy.com/en/search?query=${q}`, "Hoopla": q => `https://www.hoopladigital.com/search?q=${q}`,
+  "Criterion Channel": q => `https://www.criterionchannel.com/search?q=${q}`, "Plex": q => `https://watch.plex.tv/search?q=${q}`,
+  "Sun Nxt": q => `https://www.sunnxt.com/search?q=${q}`, "aha": q => `https://www.aha.video/search?q=${q}`,
+  "Sony Liv": q => `https://www.sonyliv.com/search?searchTerm=${q}`, "SonyLIV": q => `https://www.sonyliv.com/search?searchTerm=${q}`,
+  "MX Player": q => `https://www.mxplayer.in/search?q=${q}`, "Amazon Video": q => `https://www.amazon.com/s?k=${q}&i=instant-video`,
+  "Apple TV Store": q => `https://tv.apple.com/search?term=${q}`, "Google Play Movies": q => `https://play.google.com/store/search?q=${q}&c=movies`,
+  "Fandango At Home": q => `https://athome.fandango.com/content/browse/search?searchString=${q}`
 };
+let regionNames; try { regionNames = new Intl.DisplayNames(["en"], { type: "region" }); } catch { regionNames = null; }
+const regionName = c => { try { return regionNames?.of(c) || c; } catch { return c; } };
+const googleUrl = (f, extra) => "https://www.google.com/search?q=" + encodeURIComponent([tidy(f.title), f.year, f.type === "series" ? "web series" : "film", extra].filter(Boolean).join(" "));
+let watchCache = {};
+function watchBlock(e, c, f){
+  const row = (label, list) => list?.length ? `<p style="margin:0 0 6px"><strong>${label}:</strong> ${watchChips([...new Set(list)].join(", "), f, e.l)}</p>` : "";
+  return row("Stream", e.s) + row("Rent", e.r) + row("Buy", e.b)
+    + (e.l ? `<p class="meta" style="margin:6px 0 0"><a href="${esc(e.l)}" target="_blank" rel="noopener">All options in ${esc(regionName(c))} ↗</a></p>` : "");
+}
+function watchPanel(f){
+  let reg = {}; try { reg = JSON.parse(f.watch_regions || "{}") || {}; } catch { reg = {}; }
+  // older rows only have the India / US columns
+  if (!reg.IN && f.streaming_in) reg.IN = { s: f.streaming_in.split(", "), l: f.watch_link_in };
+  if (!reg.US && (f.streaming_us || f.rent_buy_us)) reg.US = { s: (f.streaming_us || "").split(", ").filter(Boolean), r: (f.rent_buy_us || "").split(", ").filter(Boolean), l: f.watch_link_us };
+  watchCache = reg;
+  const order = ["IN", "US", "GB", "CA", "AU"], codes = Object.keys(reg).sort((a, b) => ((order.indexOf(a) + 1) || 99) - ((order.indexOf(b) + 1) || 99));
+  const jwc = c => ({ GB: "uk" })[c] || c.toLowerCase();
+  const buttons = `<div class="watch-actions">
+      <a class="btn primary" href="${esc(googleUrl(f, "where to watch"))}" target="_blank" rel="noopener">Where to watch on Google ↗</a>
+      <a class="btn" href="${esc(googleUrl(f))}" target="_blank" rel="noopener">Search on Google ↗</a>
+      <a class="btn" href="https://www.justwatch.com/${jwc(codes[0] || "in")}/search?q=${encodeURIComponent(tidy(f.title))}" target="_blank" rel="noopener">JustWatch ↗</a>
+    </div>`;
+  if (!codes.length) return `<p class="meta" style="margin:0 0 10px">${f.tmdb_checked_at ? "No streaming, rental or purchase options are listed for this title in the countries we track." : "Where-to-watch details for this title are still being added."} Google usually shows current options.</p>${buttons}`;
+  const block = c => watchBlock(reg[c] || {}, c, f);
+  return `<div class="cal-months" role="tablist" id="watchTabs">${codes.map((c, i) => `<button type="button" role="tab" data-c="${c}" aria-pressed="${i === 0}">${esc(regionName(c))}</button>`).join("")}</div>
+    <div id="watchBody">${block(codes[0])}</div>${buttons}
+    <p class="meta" style="margin:10px 0 0">Streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a> via TMDB. Availability changes often; Google shows the latest.</p>`;
+}
 const svc = p => p.replace(/ (Amazon|Apple TV|Roku Premium) Channel$/,"").replace(/^Paramount (Plus|\+).*$|^Paramount\+.*$/,"Paramount+")
   .replace(/ (Essential|Premium|Standard|Basic|with Ads)$/,"").replace(/^Peacock.*$/,"Peacock").replace(/^Max.*$/,"Max").trim();
 function watchChips(list, f, fallback){
@@ -417,16 +469,19 @@ async function buildStrip(slug, kind = "film", tab){
   const first = cur.years[0].year, last = cur.years[cur.years.length-1].year, tip = $("#tip");
   const span = last - first + 1, avail = ($("#stripScroll").clientWidth || 1000) - 40;
   const barW = Math.max(9, Math.min(48, Math.floor(avail / span) - 2));
-  document.querySelector(".strip-legend").innerHTML = `<span>${kind === "series" ? "Web series premiered" : "Films released"}</span><span class="s">Share streaming now</span>`;
+  const noun2 = kind === "series" ? "web series" : "films";
+  document.querySelector(".strip-legend").innerHTML = `<span class="s">Yellow: streaming now</span><span>Gray: not streaming or no data yet</span>`;
+  $("#stripNote2").textContent = `Each bar's height is the number of ${noun2} released that year. The yellow part is how many you can stream right now on a service in India, the US, the UK, Canada, Australia or the title's home country; the gray part is the rest. Hover over a bar for exact numbers, or click it to open that year.`;
   for (let y = first; y <= last; y++){
     const d = byYear[y] || {films:0, streaming:0};
     const b = document.createElement("button");
     b.className = "yr" + ((span <= 40 ? y % 5 === 0 : y % 10 === 0) ? " decade" : "") + (d.streaming ? " has-stream" : "");
     b.dataset.y = y; b.style.width = barW + "px"; b.style.height = Math.max(3, Math.round(170 * d.films / max)) + "px";
     if (d.streaming) b.style.setProperty("--s", Math.round(100 * d.streaming / d.films) + "%");
-    b.setAttribute("role","listitem"); b.setAttribute("aria-label", `${y}: ${d.films} films`);
+    const tipText = `${y}: ${d.films.toLocaleString()} ${kind === "series" ? "web series" : "films"} · ${d.streaming.toLocaleString()} streaming now (yellow) · ${(d.films - d.streaming).toLocaleString()} not streaming (gray)`;
+    b.setAttribute("role","listitem"); b.setAttribute("aria-label", tipText);
     b.onclick = () => go(`#/i/${slug}${sPath}/year/${y}`);
-    b.onmouseenter = e => { tip.textContent = `${y} · ${d.films} films`; tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; tip.style.opacity = 1; };
+    b.onmouseenter = e => { tip.textContent = tipText; tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; tip.style.opacity = 1; };
     b.onmousemove = e => { tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; };
     b.onmouseleave = () => tip.style.opacity = 0;
     strip.appendChild(b);
@@ -446,7 +501,8 @@ function filmRow(f, showInd, showYear){
   const where = [...new Set((f.streaming_in || f.streaming_us || "").split(", ").filter(Boolean).map(svc))].slice(0,3);
   const score = f.user_rating_count > 0 ? `<span class="score" title="Pujiverse users">${f.user_rating_avg}</span>` :
                 f.rating_display ? `<span class="score" title="TMDB">${(+f.rating_display).toFixed(1)}</span>` : "";
-  const when = realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined, showYear ? {year:"numeric",month:"short",day:"numeric"} : {month:"short",day:"numeric"}) : (showYear ? f.year : null);
+  const otherYear = realDate(f.release_date) && f.year && +f.release_date.slice(0, 4) !== +f.year;
+  const when = realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined, showYear || otherYear ? {year:"numeric",month:"short",day:"numeric"} : {month:"short",day:"numeric"}) : (showYear ? f.year : null);
   const seriesTag = f.type === "series" ? [f.network ? f.network.split(", ")[0] : null, f.seasons ? `${f.seasons} season${f.seasons>1?"s":""}` : null].filter(Boolean).join(" · ") : null;
   const matched = f.match_field && f.match_field !== "title" ? `Matched ${f.match_field}` : null;
   const meta = [when, f.type === "series" ? "Web series" : null, seriesTag, f.director, g(f.genre), matched].filter(Boolean).map(esc).join(" · ");
@@ -462,7 +518,7 @@ function filmRow(f, showInd, showYear){
       ${showInd && indBySlug[f.industry] ? `<span class="ind-tag">${esc(indBySlug[f.industry].name)}</span>` : ""}${badges}
       <div class="meta">${meta}</div>${upDays != null ? icsButton(f) : ""}
     </div>
-    <div class="where">${score}${where.map(w=>`<b>${esc(w)}</b>`).join("")}</div>
+    <div class="where">${score}${where.map(w=>`<b>${esc(w)}</b>`).join("")}${where.length ? "" : `<a class="gsearch" href="${esc(googleUrl(f, "where to watch"))}" target="_blank" rel="noopener" title="Search Google for where to watch">Where to watch? ↗</a>`}</div>
   </li>`;
 }
 async function viewIndustry(slug){
@@ -479,10 +535,83 @@ async function viewIndustry(slug){
   $("#view").innerHTML = `<h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
 }
 const PAGE = 100;
-const SORTS = { date:"Release date", newest:"Newest first", title:"Title A–Z", rating:"Highest rated" };
+const SORTS = { date: "Release date: oldest first", newest: "Release date: newest first", popular: "Most popular", rating: "Highest rated", title: "Title A–Z", titlez: "Title Z–A" };
+const FORMATS = { "": "All formats", movie: "Feature films", short: "Short films", animated: "Animated", documentary: "Documentaries", tv_film: "TV films" };
+const GENRES = ["Action","Adventure","Animation","Biography","Comedy","Crime","Documentary","Drama","Family","Fantasy","History","Horror","Musical","Mystery","Romance","Science Fiction","Sport","Thriller","War","Western"];
+const GENRE_MATCH = { History: "histor", Biography: "biograph", Animation: "anim", Documentary: "documentar", Musical: "music", "Science Fiction": "science fiction", Sport: "sport", Romance: "roman", };
+const AVAIL = { "": "All titles", stream: "Streaming now (any country)", in: "Streaming in India", us: "Streaming in the US", watch: "Stream, rent or buy" };
+const MINR = { "": "Any rating", "6": "6+ on TMDB", "7": "7+ on TMDB", "8": "8+ on TMDB" };
+const optList = (obj, val) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === (val || "") ? "selected" : ""}>${v}</option>`).join("");
+const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
+/* Builds a WHERE fragment with numbered parameters (?n) starting at `start`. `p` is a column prefix such as "t.". */
+function filterSql(o, p = "", start = 1){
+  const parts = [], args = []; let n = start;
+  const arg = v => { args.push(v); return `?${n++}`; };
+  const exact = `(${p}release_date is not null and substr(${p}release_date, 6) <> '01-01')`;
+  if (o.fmt) parts.push(`${p}type = ${arg(o.fmt)}`);
+  if (o.genre) parts.push(o.genre === "War" ? `(${p}genre like ${arg("%war film%")} or ${p}genre like ${arg("War%")} or ${p}genre like ${arg("%, War%")})` : `${p}genre like ${arg("%" + (GENRE_MATCH[o.genre] || o.genre) + "%")}`);
+  if (o.avail === "stream") parts.push(`(${p}streaming_in is not null or ${p}streaming_us is not null or ${p}watch_regions like '%"s":[%')`);
+  if (o.avail === "in") parts.push(`${p}streaming_in is not null`);
+  if (o.avail === "us") parts.push(`${p}streaming_us is not null`);
+  if (o.avail === "watch") parts.push(`(${p}streaming_in is not null or ${p}streaming_us is not null or ${p}rent_buy_us is not null or (${p}watch_regions is not null and ${p}watch_regions <> '{}'))`);
+  if (o.minr) parts.push(`${p}rating_display >= ${arg(+o.minr)}`);
+  const df = isDate(o.dfrom) ? o.dfrom : null, dt = isDate(o.dto) ? o.dto : null;
+  if (df || dt) {
+    const dated = [exact, df ? `${p}release_date >= ${arg(df)}` : null, dt ? `${p}release_date <= ${arg(dt)}` : null].filter(Boolean).join(" and ");
+    const undated = `(not ${exact} and ${p}year between ${arg(df ? +df.slice(0, 4) : 1880)} and ${arg(dt ? +dt.slice(0, 4) : 2100)})`;
+    parts.push(o.undated === "0" ? `(${dated})` : `((${dated}) or ${undated})`);
+  } else if (o.undated === "0") parts.push(exact);
+  return { sql: parts.length ? " and " + parts.join(" and ") : "", args, next: n, exact };
+}
+function orderSql(sort, p = ""){
+  const exact = `(${p}release_date is not null and substr(${p}release_date, 6) <> '01-01')`;
+  const datedFirst = `case when ${exact} then 0 else 1 end`;
+  const weighted = `(case when ${p}rating_display is null then null else (${p}rating_display*coalesce(${p}tmdb_votes,0) + 6.5*250.0)/(coalesce(${p}tmdb_votes,0)+250.0) end)`;
+  return ({
+    date: `${datedFirst}, case when ${exact} then ${p}release_date end, ${p}year nulls last, ${p}title collate nocase`,
+    newest: `${datedFirst}, case when ${exact} then ${p}release_date end desc, ${p}year desc nulls last, ${p}title collate nocase`,
+    popular: `coalesce(${p}tmdb_votes,0) desc, ${datedFirst}, ${p}release_date desc, ${p}title collate nocase`,
+    rating: `${weighted} desc nulls last, coalesce(${p}tmdb_votes,0) desc, ${p}title collate nocase`,
+    title: `${p}title collate nocase`, titlez: `${p}title collate nocase desc`
+  })[sort] || "";
+}
+function filterFields(o, { series = false, dateFrom = "", dateTo = "", undatedOn = true } = {}){
+  return `
+      <label>From date <input class="field" name="dfrom" type="date" min="1880-01-01" max="2100-12-31" value="${esc(o.dfrom || dateFrom)}"></label>
+      <label>To date <input class="field" name="dto" type="date" min="1880-01-01" max="2100-12-31" value="${esc(o.dto || dateTo)}"></label>
+      ${series ? "" : `<label>Format <select class="field" name="fmt">${optList(FORMATS, o.fmt)}</select></label>`}
+      <label>Genre <select class="field" name="genre"><option value="">All genres</option>${GENRES.map(g => `<option ${g === o.genre ? "selected" : ""}>${g}</option>`).join("")}</select></label>
+      <label>Where to watch <select class="field" name="avail">${optList(AVAIL, o.avail)}</select></label>
+      <label>Rating <select class="field" name="minr">${optList(MINR, o.minr)}</select></label>
+      <label class="check"><input type="checkbox" name="undated" ${undatedOn ? "checked" : ""}> Include titles with no exact date (listed last)</label>`;
+}
+function readFilters(form){
+  const v = k => form[k] ? form[k].value : "";
+  return { dfrom: v("dfrom"), dto: v("dto"), fmt: v("fmt"), genre: v("genre"), avail: v("avail"), minr: v("minr"),
+           sort: v("sort"), undated: form.undated && !form.undated.checked ? "0" : "" };
+}
+function describeFilters(o){
+  const bits = [];
+  const fmt = d => new Date(d + "T00:00").toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  if (isDate(o.dfrom) || isDate(o.dto)) bits.push(`${isDate(o.dfrom) ? fmt(o.dfrom) : "the start"} to ${isDate(o.dto) ? fmt(o.dto) : "today"}`);
+  if (o.fmt) bits.push(FORMATS[o.fmt]); if (o.genre) bits.push(o.genre); if (o.avail) bits.push(AVAIL[o.avail]); if (o.minr) bits.push(MINR[o.minr]);
+  if (o.undated === "0") bits.push("exact dates only");
+  return bits.length ? `Filtered: ${bits.map(esc).join(" · ")}` : "";
+}
+function rowsWithDivider(rows, state, showInd, showYear){
+  const exactRow = r => realDate(r.release_date);
+  return rows.map(r => {
+    let pre = "";
+    if (state.dateSort && !exactRow(r) && !state.dividerShown) {
+      state.dividerShown = true;
+      pre = `<li class="divider">Date not known<small>These titles only have a release year, so they're listed after everything with an exact date.</small></li>`;
+    }
+    return pre + filmRow(r, showInd, showYear);
+  }).join("");
+}
 function parseHash(){ const [path, qs] = (location.hash || "#/").split("?"); return { path, p: new URLSearchParams(qs || "") }; }
 function hashWith(path, params){ const s = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== "" && v != null && v !== false)).toString(); return path + (s ? "?" + s : ""); }
-const ORDER_SQL = {
+const ORDER_SQL_UNUSED = {
   title: "title collate nocase",
   newest: "year desc, release_date desc nulls last, title collate nocase",
   rating: "(case when rating_display is null then null else (rating_display*coalesce(tmdb_votes,0) + 6.5*250.0)/(coalesce(tmdb_votes,0)+250.0) end) desc nulls last, title collate nocase",
@@ -500,53 +629,70 @@ async function viewSeries(slug){
 async function viewList(slug, from, to, opts, kind = "film"){
   if (!(await buildStrip(slug, kind))) return; markYear(from, to);
   const isS = kind === "series", sp = isS ? "/series" : "";
-  const sort = SORTS[opts.sort] ? opts.sort : "date", stream = opts.stream === "1";
-  const name = indBySlug[slug].name.replace(/ cinema$/,"");
+  if (opts.stream === "1" && !opts.avail) opts.avail = "stream";
+  const sort = SORTS[opts.sort] ? opts.sort : "date";
+  const name = indBySlug[slug].name.replace(/ cinema$/,""), noun = isS ? "web series" : "films";
   const single = from === to;
-  const inRange = cur.years.filter(d => d.year >= from && d.year <= to);
-  const total = inRange.reduce((a,b)=>a+b.films,0), streaming = inRange.reduce((a,b)=>a+b.streaming,0);
+  const keep = o => ({ dfrom: o.dfrom, dto: o.dto, fmt: o.fmt, genre: o.genre, avail: o.avail, minr: o.minr, sort: o.sort, undated: o.undated });
   const base = single ? `#/i/${slug}${sp}/year/${from}` : `#/i/${slug}${sp}/years/${from}-${to}`;
   const prev = single ? cur.years.filter(d=>d.year<from).pop() : null, next = single ? cur.years.find(d=>d.year>from) : null;
   const decade = Math.floor(from/10)*10;
+  const inRange = cur.years.filter(d => d.year >= from && d.year <= to);
+  const total = inRange.reduce((a,b)=>a+b.films,0), streaming = inRange.reduce((a,b)=>a+b.streaming,0);
   $("#view").innerHTML = `
-    <h2>${esc(name)} ${isS ? "web series" : "films"} ${single ? `of ${from}` : `${from}–${to}`}</h2>
-    <p class="sub">${total ? `${total.toLocaleString()} ${isS ? "web series" : "films"} · ${streaming} streaming now` : "No films recorded in this time frame."}</p>
+    <h2>${esc(name)} ${noun} ${single ? `of ${from}` : `${from}–${to}`}</h2>
+    <p class="sub">${total ? `${total.toLocaleString()} ${noun} · ${streaming.toLocaleString()} streaming now · ${(total - streaming).toLocaleString()} not streaming` : `No ${noun} recorded in this time frame.`}</p>
     <div class="row-nav">
-      ${prev ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${prev.year}`, {sort:opts.sort})}">← ${prev.year}</a>` : ""}
-      ${next ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${next.year}`, {sort:opts.sort})}">${next.year} →</a>` : ""}
-      ${single ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/years/${decade}-${decade+9}`, {sort:opts.sort})}">Whole ${decade}s</a>` : ""}
-      <a class="chip" href="${hashWith(base,{sort:opts.sort})}" aria-pressed="${!stream}">All films</a>
-      <a class="chip" href="${hashWith(base,{sort:opts.sort, stream:"1"})}" aria-pressed="${stream}">Streaming now</a>
+      ${prev ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${prev.year}`, { sort: opts.sort })}">← ${prev.year}</a>` : ""}
+      ${next ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${next.year}`, { sort: opts.sort })}">${next.year} →</a>` : ""}
+      ${single ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/years/${decade}-${decade+9}`, { sort: opts.sort })}">Whole ${decade}s</a>` : ""}
+      <a class="chip" href="${hashWith(base, { ...keep(opts), avail: "" })}" aria-pressed="${!opts.avail}">All ${noun}</a>
+      <a class="chip" href="${hashWith(base, { ...keep(opts), avail: "stream" })}" aria-pressed="${opts.avail === "stream"}">Streaming now</a>
     </div>
     ${single ? `<section class="cal-wrap" id="cal"><h3>Release calendar ${from}</h3><p class="sub" id="calNote">Loading release dates…</p></section>` : ""}
-    ${single ? `<h3 class="list-h" id="fullList">All ${isS ? "web series" : "films"} of ${from}</h3>` : ""}
+    ${single ? `<h3 class="list-h" id="fullList">All ${noun} of ${from}</h3>` : ""}
     <form class="filters" id="listForm">
-      <label>From <input class="field" name="from" type="number" min="1880" max="2030" value="${from}"></label>
-      <label>To <input class="field" name="to" type="number" min="1880" max="2030" value="${to}"></label>
-      <label>Sort by <select class="field" name="sort">${Object.entries(SORTS).map(([k,v])=>`<option value="${k}" ${k===sort?"selected":""}>${v}</option>`).join("")}</select></label>
-      <button class="btn primary">Show films</button>
+      ${filterFields(opts, { series: isS, dateFrom: `${from}-01-01`, dateTo: `${to}-12-31`, undatedOn: opts.undated !== "0" })}
+      <label>Sort by <select class="field" name="sort">${optList(SORTS, sort)}</select></label>
+      <div class="actions"><button class="btn primary">Apply filters</button><button type="button" class="linkbtn" id="resetF">Reset</button></div>
     </form>
+    <p class="active-filters" id="activeF"></p>
+    <p class="sub" id="countNote"></p>
     <ul class="films" id="filmList"></ul>
     <div id="more"></div>`;
-  $("#listForm").onsubmit = e => {
+  const form = $("#listForm");
+  form.onsubmit = e => {
     e.preventDefault();
-    let a = +e.target.from.value || from, b = +e.target.to.value || a; if (b < a) [a, b] = [b, a];
-    go(hashWith(a === b ? `#/i/${slug}${sp}/year/${a}` : `#/i/${slug}${sp}/years/${a}-${b}`, {sort: e.target.sort.value, stream: stream ? "1" : ""}));
+    const o = readFilters(form);
+    let df = isDate(o.dfrom) ? o.dfrom : `${from}-01-01`, dt = isDate(o.dto) ? o.dto : `${to}-12-31`;
+    if (dt < df) [df, dt] = [dt, df];
+    const a = +df.slice(0, 4), b = +dt.slice(0, 4);
+    o.dfrom = df === `${a}-01-01` ? "" : df; o.dto = dt === `${b}-12-31` ? "" : dt;
+    go(hashWith(a === b ? `#/i/${slug}${sp}/year/${a}` : `#/i/${slug}${sp}/years/${a}-${b}`, o));
   };
-  $("#listForm").sort.onchange = e => e.target.form.requestSubmit();
+  form.sort.onchange = () => form.requestSubmit();
+  $("#resetF").onclick = () => go(base);
+  $("#activeF").innerHTML = describeFilters(opts);
+  const yf = { ...opts, dfrom: opts.dfrom, dto: opts.dto };
+  const f = filterSql(yf, "", 5);
+  const where = `industry = ?1 and year between ?2 and ?3 and type ${isS ? "=" : "<>"} 'series'${f.sql}`;
+  const baseArgs = [slug, from, to, null, ...f.args];   // ?4 is unused (keeps numbering simple)
+  safe(tq(`select count(*) as n, sum(case when ${f.exact} then 1 else 0 end) as dated from titles where ${where} and ?4 is null`, baseArgs))
+    .then(({ data }) => { const c = data?.[0]; if (c && $("#countNote")) $("#countNote").textContent =
+      `${(c.n || 0).toLocaleString()} ${noun} match: ${(c.dated || 0).toLocaleString()} with an exact release date${c.n - c.dated ? `, ${(c.n - c.dated).toLocaleString()} with only a year` : ""}.`; });
+  const state = { dateSort: sort === "date" || sort === "newest", dividerShown: false };
   let page = 0;
   const load = async () => {
-    $("#more").innerHTML = `<p class="empty">Loading films…</p>`;
-    const { data, error } = await safe(tq(`select ${LIST_COLS} from titles where industry = ? and year between ? and ?
-      and type ${isS ? "=" : "<>"} 'series' ${stream ? "and (streaming_in is not null or streaming_us is not null)" : ""}
-      order by ${ORDER_SQL[sort]} limit ? offset ?`, [slug, from, to, PAGE, page*PAGE]));
-    if (error) { $("#more").innerHTML = `<p class="empty">Films didn't load (${esc(error.message)}). Try a smaller time frame.</p>`; return; }
-    $("#filmList").insertAdjacentHTML("beforeend", data.map(f => filmRow(f, false, !single)).join(""));
+    $("#more").innerHTML = `<p class="empty">Loading ${noun}…</p>`;
+    const { data, error } = await safe(tq(`select ${LIST_COLS} from titles where ${where} and ?4 is null
+      order by ${orderSql(sort)} limit ${PAGE} offset ${page * PAGE}`, baseArgs));
+    if (error) { $("#more").innerHTML = `<p class="empty">The list didn't load (${esc(error.message)}). Try a smaller time frame.</p>`; return; }
+    $("#filmList").insertAdjacentHTML("beforeend", rowsWithDivider(data, state, false, !single || !!(opts.dfrom || opts.dto)));
     page++;
-    const shown = $("#filmList").children.length;
+    const shown = $("#filmList").querySelectorAll("li:not(.divider)").length;
     $("#more").innerHTML = data.length === PAGE
-      ? `<p class="meta">Showing ${shown.toLocaleString()} of ${(stream ? streaming : total).toLocaleString()}</p><button class="btn" id="moreBtn">Show ${PAGE} more</button>`
-      : (shown ? `<p class="meta">Showing all ${shown.toLocaleString()} films.</p>` : `<p class="empty">No films match. Switch to "All films" or widen the years.</p>`);
+      ? `<p class="meta">Showing ${shown.toLocaleString()}</p><button class="btn" id="moreBtn">Show ${PAGE} more</button>`
+      : (shown ? `<p class="meta">Showing all ${shown.toLocaleString()}.</p>` : `<p class="empty">Nothing matches these filters. Widen the dates or press Reset.${opts.genre || opts.minr ? " Many older and smaller titles don't have a genre or rating saved yet, so those filters can hide them." : ""}</p>`);
     const mb = $("#moreBtn"); if (mb) mb.onclick = load;
   };
   if (single) loadCalendar(slug, from, isS);
@@ -660,29 +806,35 @@ async function viewUpcoming(slug, opts){
 async function viewSearch(term, opts){
   $("#stripSec").hidden = true; cur = { ind:null, years:[] }; await loadIndustries();
   $("#q").value = term;
-  const sort = ["relevance","newest","oldest","title","rating"].includes(opts.sort) ? opts.sort : "relevance";
+  if (opts.from && !opts.dfrom) opts.dfrom = `${opts.from}-01-01`;      // older links used years
+  if (opts.to && !opts.dto) opts.dto = `${opts.to}-12-31`;
+  const SSORTS = { relevance: "Best match", ...SORTS };
+  const sort = SSORTS[opts.sort] ? opts.sort : "relevance";
   const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i=>i.region===r).map(i=>`<option value="${i.slug}" ${opts.ind===i.slug?"selected":""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
   $("#view").innerHTML = `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
     <h2>Results for "${esc(term)}"</h2>
     <form class="filters" id="searchForm">
       <label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label>
-      <label>From <input class="field" name="from" type="number" min="1880" max="2030" value="${esc(opts.from||"")}" placeholder="Any"></label>
-      <label>To <input class="field" name="to" type="number" min="1880" max="2030" value="${esc(opts.to||"")}" placeholder="Any"></label>
-      <label>Sort by <select class="field" name="sort">${[["relevance","Best match"],["newest","Newest first"],["oldest","Oldest first"],["title","Title A–Z"],["rating","Highest rated"]].map(([k,v])=>`<option value="${k}" ${k===sort?"selected":""}>${v}</option>`).join("")}</select></label>
-      <button class="btn primary">Update results</button>
+      ${filterFields(opts, { undatedOn: opts.undated !== "0" })}
+      <label>Sort by <select class="field" name="sort">${optList(SSORTS, sort)}</select></label>
+      <div class="actions"><button class="btn primary">Apply filters</button><button type="button" class="linkbtn" id="resetF">Reset</button></div>
     </form>
+    <p class="active-filters">${describeFilters(opts)}</p>
     <p class="sub" id="searchNote">Searching…</p>
     <ul class="films" id="filmList"></ul><div id="more"></div>`;
-  const f = $("#searchForm");
-  f.onsubmit = e => { e.preventDefault(); go(hashWith(`#/search/${encodeURIComponent(term)}`, {ind:f.ind.value, from:f.from.value, to:f.to.value, sort:f.sort.value})); };
-  f.ind.onchange = f.sort.onchange = () => f.requestSubmit();
+  const form = $("#searchForm");
+  form.onsubmit = e => { e.preventDefault(); const o = readFilters(form);
+    if (isDate(o.dfrom) && isDate(o.dto) && o.dto < o.dfrom) [o.dfrom, o.dto] = [o.dto, o.dfrom];
+    go(hashWith(`#/search/${encodeURIComponent(term)}`, { ind: form.ind.value, ...o })); };
+  form.ind.onchange = form.sort.onchange = () => form.requestSubmit();
+  $("#resetF").onclick = () => go(`#/search/${encodeURIComponent(term)}`);
+  const state = { dateSort: sort === "date" || sort === "newest", dividerShown: false };
   let off = 0, usePrefix = false;
   const load = async () => {
     const words = (term.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).slice(0, 8);
     const t = term.trim().toLowerCase();
-    const SEARCH_ORDER = { relevance: "rk, coalesce(t.tmdb_votes,0) desc, t.year desc nulls last",
-      newest: "t.year desc nulls last, rk", oldest: "t.year nulls last, rk", title: "t.title collate nocase",
-      rating: "(case when t.rating_display is null then null else (t.rating_display*coalesce(t.tmdb_votes,0) + 6.5*250.0)/(coalesce(t.tmdb_votes,0)+250.0) end) desc nulls last" };
+    const f = filterSql(opts, "t.", 4);
+    const order = sort === "relevance" ? "rk, coalesce(t.tmdb_votes,0) desc, t.year desc nulls last" : orderSql(sort, "t.") + ", rk";
     const runSearch = match => safe(tq(`with c as (select rowid from titles_fts where titles_fts match ?2 limit 20000)
       select ${LIST_COLS.split(",").map(c => "t." + c).join(",")},
       case when lower(t.title) = ?1 or lower(coalesce(t.title_local,'')) = ?1 or lower(coalesce(t.original_title,'')) = ?1 or lower(coalesce(t.title_telugu,'')) = ?1 then 1
@@ -690,18 +842,18 @@ async function viewSearch(term, opts){
            when lower(t.title) like '%' || ?1 || '%' or lower(coalesce(t.title_local,'')) like '%' || ?1 || '%' or lower(coalesce(t.original_title,'')) like '%' || ?1 || '%' then 3
            when lower(coalesce(t.director,'')) like '%' || ?1 || '%' then 4 else 5 end as rk
       from c join titles t on t.rowid = c.rowid
-      where (?3 is null or t.industry = ?3) and (?4 is null or t.year >= ?4) and (?5 is null or t.year <= ?5)
-      order by ${SEARCH_ORDER[sort]} limit 50 offset ?6`,
-      [t, match, opts.ind || null, opts.from ? +opts.from : null, opts.to ? +opts.to : null, off]));
+      where (?3 is null or t.industry = ?3)${f.sql}
+      order by ${order} limit 50 offset ${off}`,
+      [t, match, opts.ind || null, ...f.args]));
     const whole = words.map(w => `"${w}"`).join(" ");
     const prefix = words.map((w, i) => i === words.length - 1 ? `"${w}"*` : `"${w}"`).join(" ");
     let { data, error } = !words.length ? { data: [], error: null } : await runSearch(usePrefix ? prefix : whole);
     if (!error && off === 0 && !usePrefix && data.length === 0 && words.length) { usePrefix = true; ({ data, error } = await runSearch(prefix)); }
     if (data) data.forEach(x => x.match_field = x.rk === 4 ? "director" : x.rk === 5 ? "cast" : "title");
     if (error) { $("#searchNote").textContent = "Search didn't finish: " + error.message + ". Try a longer word."; return; }
-    $("#filmList").insertAdjacentHTML("beforeend", data.map(x => filmRow(x, true, true)).join(""));
+    $("#filmList").insertAdjacentHTML("beforeend", rowsWithDivider(data, state, true, true));
     off += data.length;
-    $("#searchNote").textContent = off ? `${off}${data.length === 50 ? "+" : ""} films match by title, director or cast` : (term.trim().length < 2 ? "Type at least 2 letters." : "No films found. Try a shorter word, a different spelling, or remove the filters.");
+    $("#searchNote").textContent = off ? `${off}${data.length === 50 ? "+" : ""} titles match by title, director or cast` : (term.trim().length < 2 ? "Type at least 2 letters." : "Nothing found. Try a shorter word, a different spelling, or press Reset to clear the filters." + (opts.genre || opts.minr ? " Many older and smaller titles don't have a genre or rating saved yet." : ""));
     $("#more").innerHTML = data.length === 50 ? `<button class="btn" id="moreBtn">Show more results</button>` : "";
     const mb = $("#moreBtn"); if (mb) mb.onclick = load;
   };
@@ -740,6 +892,7 @@ async function viewFilm(id){
     <div>
       <h1>${esc(tidy(f.title))}</h1>
       ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
+      <p style="margin:10px 0 0"><a class="btn" style="text-decoration:none;font-size:14px;padding:6px 14px" href="${esc(googleUrl(f))}" target="_blank" rel="noopener">Search on Google ↗</a></p>
       ${upcoming ? `<p style="margin:10px 0 0"><span class="badge soon" style="margin:0">Releases in ${daysUntil(f.release_date)} day${daysUntil(f.release_date) === 1 ? "" : "s"}</span> ${icsButton(f)}</p>` : ""}
       ${langs.length ? `<p style="margin:10px 0 0"><span class="badge" style="margin:0">Available in ${langs.length} language${langs.length === 1 ? "" : "s"}</span></p>` : ""}
       <dl class="facts">
@@ -752,15 +905,7 @@ async function viewFilm(id){
       ${langs.length > 1 ? `<p class="meta" style="margin:-10px 0 16px">Languages come from TMDB's spoken languages and from versions of this film listed under other industries.</p>` : ""}
       ${f.overview ? `<p class="overview">${esc(f.overview)}</p>` : `<p class="sub">No story summary yet.</p>`}
       <section class="panel"><h3>Where to watch</h3>
-        ${f.streaming_in ? `<p style="margin:0 0 6px"><strong>India:</strong> ${watchChips(f.streaming_in, f, f.watch_link_in)}</p>` : ""}
-        ${f.streaming_us ? `<p style="margin:0 0 6px"><strong>United States:</strong> ${watchChips(f.streaming_us, f, f.watch_link_us)}</p>` : ""}
-        ${f.rent_buy_us ? `<p style="margin:0 0 6px" class="meta">Rent or buy in the US: ${esc(f.rent_buy_us)}</p>` : ""}
-        ${!f.streaming_in && !f.streaming_us && !f.rent_buy_us ? `<p class="meta" style="margin:0 0 6px">${f.tmdb_checked_at ? "Not streaming on any service we track right now." : "Streaming details for this film are still being added."}</p>` : ""}
-        <p class="meta" style="margin:8px 0 0">
-          ${f.watch_link_in ? `<a href="${esc(f.watch_link_in)}" target="_blank" rel="noopener">See all options in India ↗</a> · ` : ""}
-          ${f.watch_link_us ? `<a href="${esc(f.watch_link_us)}" target="_blank" rel="noopener">See all options in the US ↗</a> · ` : ""}
-          ${f.streaming_in || f.streaming_us || f.rent_buy_us ? `Streaming data by <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>` : ""}
-        </p>
+        ${watchPanel(f)}
       </section>
       <section class="panel"><h3>Ratings</h3>
         <div class="ratings">
@@ -782,6 +927,11 @@ async function viewFilm(id){
       </p>
     </div>
   </article>`;
+  const wt = $("#watchTabs");
+  if (wt) { const reg = { ...watchCache };
+    wt.onclick = e => { const b = e.target.closest("button[data-c]"); if (!b) return;
+      wt.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      $("#watchBody").innerHTML = watchBlock(reg[b.dataset.c] || {}, b.dataset.c, f); }; }
   if (user) wireRateForm(f.title_id, mine);
 }
 function dots(name, val){ return `<div class="dots" data-name="${name}">${Array.from({length:10},(_,i)=>`<button type="button" aria-pressed="${val===i+1}" aria-label="${i+1} out of 10">${i+1}</button>`).join("")}</div>`; }

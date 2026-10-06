@@ -11,7 +11,8 @@
 - **Industry picker:** 68 industries grouped into 7 regions, each with a film count and a sparkline of its output from 1900 to today.
 - **Year strip:** one bar per year for the selected industry. Click a bar to list that year's films; the yellow part of each bar shows how many are streaming now.
 - **Time-frame browsing:** any year range (for example 1990–1999), or one click for a whole decade. Large ranges load 100 films at a time.
-- **Sorting:** release date, newest first, title A–Z, or highest rated.
+- **Filters and sorting:** exact date range (day, month and year), format, genre, where to watch (any country, India, US, or stream/rent/buy), minimum rating, and six sort orders (oldest or newest release date, most popular, highest rated, title A–Z or Z–A). Titles with an exact release date come first; titles that only have a year are listed after them under a "Date not known" divider, or can be hidden.
+- **Chart:** bar height is the number of titles released that year; the yellow part is how many are streaming now in any tracked country and the gray part is the rest. Hovering over a bar shows both numbers.
 - **Ranked search across every industry:**
   - Matches title (English and original script), director, or cast.
   - Ranks exact titles first, then partial title matches, then director, then cast, with better-known films first within each group.
@@ -22,6 +23,7 @@
 - **Community ratings:** signed-in users give an overall score and a separate story score (1–10) with an optional review. One rating per user per film, editable.
 - **Duplicate reporting:** users can flag a film listed twice.
 - **Original-script titles:** Telugu, Hindi, Tamil, Korean, Japanese and others appear next to the English title.
+- **Where to watch, by country:** India, US, UK, Canada, Australia and the title's home country, split into Stream / Rent / Buy, with links that open a search for the title on each service. Every film page also has **Where to watch on Google**, **Search on Google** and **JustWatch** buttons (new tab), and list rows without data link straight to a Google where-to-watch search.
 - **Release calendar:** click any year on the bar chart and a month-by-month calendar appears above the list. Pick a month, then a day, to see everything released that day. Titles that only have a known year stay in the full list.
 - **Coming soon:** a site-wide upcoming page (`#/upcoming`) and a Coming soon tab on every industry, with a calendar, a month-by-month list, "In N days" badges and **Add to calendar** (.ics) buttons.
 - **Languages:** each film shows how many languages it's available in, combining TMDB's spoken languages with versions of the same film listed under other industries (for example a Telugu film also released in Tamil).
@@ -63,6 +65,7 @@ The website is a single static `index.html` that queries both directly from the 
 ├── index.html                     # the whole website (HTML + CSS + JS, no build step)
 ├── api/chat.js                    # chat assistant (Vercel serverless function, read-only SQL tool)
 ├── vercel.json, .vercelignore     # deploy as a static site plus the /api function
+├── .github/workflows/             # scheduled data refresh: where-to-watch (daily), upcoming (weekly)
 ├── .nojekyll                      # tells GitHub Pages to serve files as-is
 ├── .env.example                   # template for pipeline secrets (copy to .env, never commit)
 ├── turso/
@@ -78,6 +81,7 @@ The website is a single static `index.html` that queries both directly from the 
     ├── tmdb_series.py             # 3. web series from TMDB           -> out/<industry>_series.csv
     ├── load_to_turso.py           # 4. upload CSVs into Turso and refresh year counts
     ├── enrich_turso.py            # 5. posters, stories, ratings, where-to-watch from TMDB (resumable)
+    ├── enrich_watch.py            # per-country where-to-watch + posters/stories from TMDB (resumable)
     ├── fetch_upcoming.py          # 6. upcoming releases per industry from TMDB (run monthly)
     ├── wiki_dates.py              # exact Indian release dates from Wikipedia year lists
     ├── fix_untitled.py            # replace titles that are only a Wikidata ID with real names
@@ -150,6 +154,15 @@ Redeploy after adding them. In `index.html`, `CHAT_API` points GitHub Pages visi
 python fetch_upcoming.py            # every industry, next 18 months, month by month
 ```
 Run it every few weeks. It adds newly announced films and updates dates, stories, posters and languages for ones already listed.
+
+### 7. Automatic data refresh (GitHub Actions)
+
+Two scheduled workflows keep the catalog filling up and current without your computer:
+
+- **Where to watch** (`.github/workflows/where-to-watch.yml`) runs daily for about five hours, checking titles TMDB hasn't covered yet and adding per-country streaming, rent and buy options, then refreshes the year-strip counts.
+- **Upcoming releases** (`.github/workflows/upcoming.yml`) runs every Monday.
+
+Add three repository secrets in **GitHub → Settings → Secrets and variables → Actions**: `TURSO_URL`, `TURSO_TOKEN` (a **full-access** Turso token, used only here) and `TMDB_API_KEY`. Start either workflow right away from the **Actions** tab with **Run workflow**.
 
 ## Security
 

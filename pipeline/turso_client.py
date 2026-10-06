@@ -52,5 +52,5 @@ def refresh_stats(industry):
     execute([("delete from industry_year_stats where industry = ?", [industry]),
              ("""insert into industry_year_stats (industry, kind, year, films, streaming)
                  select industry, case when type = 'series' then 'series' else 'film' end, year, count(*),
-                        sum(case when streaming_in is not null or streaming_us is not null then 1 else 0 end)
+                        sum(case when streaming_in is not null or streaming_us is not null or watch_regions like '%"s":[%' then 1 else 0 end)
                  from titles where industry = ? and year is not null group by 1, 2, 3""", [industry])])
