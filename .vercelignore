@@ -1,0 +1,9 @@
+# The website is just index.html. Keep the data pipeline and schemas out of the deployment
+# so Vercel doesn't treat the project as a Python app.
+pipeline/
+turso/
+supabase/
+*.py
+requirements.txt
+.env
+.env.*

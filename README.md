@@ -9,10 +9,10 @@
 ## Features
 
 - **Industry picker:** 68 industries grouped into 7 regions, each with a film count and a sparkline of its output from 1900 to today.
-- **Year strip:** one bar per year for the selected industry. Click a bar to list that year's films; the yellow part of each bar shows how many are streaming now.
+- **Year strip:** one bar per year for the selected industry. Click a bar to list that year's films; the lower part of each bar shows how many are streaming now.
 - **Time-frame browsing:** any year range (for example 1990–1999), or one click for a whole decade. Large ranges load 100 films at a time.
-- **Filters and sorting:** exact date range (day, month and year), format, genre, where to watch (any country, India, US, or stream/rent/buy), minimum rating, and six sort orders (oldest or newest release date, most popular, highest rated, title A–Z or Z–A). Titles with an exact release date come first; titles that only have a year are listed after them under a "Date not known" divider, or can be hidden.
-- **Chart:** bar height is the number of titles released that year; the yellow part is how many are streaming now in any tracked country and the gray part is the rest. Hovering over a bar shows both numbers.
+- **Filters and sorting:** exact date range (day, month and year), genre, where to watch (any country, India, US, or stream/rent/buy), minimum rating, and six sort orders (oldest or newest release date, most popular, highest rated, title A–Z or Z–A). Titles with an exact release date come first; titles that only have a year are listed after them under a "Date not known" divider, or can be hidden.
+- **Chart:** bar height is the number of titles released that year; the lower part ("Streaming now") is how many can be streamed in any tracked country and the upper part ("No streaming data") is the rest. Hovering over a bar shows both numbers.
 - **Ranked search across every industry:**
   - Matches title (English and original script), director, or cast.
   - Ranks exact titles first, then partial title matches, then director, then cast, with better-known films first within each group.
@@ -144,7 +144,7 @@ The assistant runs as a Vercel serverless function (`api/chat.js`), so it works 
 | `TURSO_URL` | `libsql://<db>-<org>.<region>.turso.io` |
 | `TURSO_READ_TOKEN` | a **read-only** Turso token |
 | `GEMINI_API_KEY` | free key from [aistudio.google.com](https://aistudio.google.com) (or set `ANTHROPIC_API_KEY` instead) |
-| `LLM_MODEL` | optional model override; defaults are `gemini-2.5-flash` / `claude-haiku-4-5-20251001` |
+| `LLM_MODEL` | optional model override; defaults are `gemini-3.5-flash-lite` (falls back to `gemini-3.1-flash-lite`) / `claude-haiku-4-5-20251001` |
 
 Redeploy after adding them. In `index.html`, `CHAT_API` points GitHub Pages visitors to `https://<your-project>.vercel.app/api/chat`; the allowed origins are listed at the top of `api/chat.js`. The function only accepts single `SELECT` queries, caps results at 60 rows, and rate-limits each visitor to 20 questions per 10 minutes.
 

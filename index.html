@@ -50,7 +50,7 @@ header.top{display:flex;align-items:center;gap:20px;padding:18px 0 8px;flex-wrap
 .strip-legend{display:flex;gap:18px;font-size:14px;color:var(--muted);margin:6px 0 0;flex-wrap:wrap}
 .strip-legend span::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;vertical-align:-1px;background:var(--line)}
 .strip-legend span.s::before{background:var(--turmeric)}
-.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--screen);font:600 13px var(--body);padding:5px 9px;border-radius:6px;opacity:0;transform:translate(-50%,-130%)}
+.tip{position:fixed;pointer-events:none;white-space:nowrap;z-index:60;background:var(--ink);color:var(--screen);font:600 13px var(--body);padding:5px 9px;border-radius:6px;opacity:0;transform:translate(-50%,-130%)}
 
 main{padding:34px 0 60px}
 h2{font:800 30px/1.1 var(--display);letter-spacing:-.02em;margin:0 0 4px}
@@ -470,18 +470,18 @@ async function buildStrip(slug, kind = "film", tab){
   const span = last - first + 1, avail = ($("#stripScroll").clientWidth || 1000) - 40;
   const barW = Math.max(9, Math.min(48, Math.floor(avail / span) - 2));
   const noun2 = kind === "series" ? "web series" : "films";
-  document.querySelector(".strip-legend").innerHTML = `<span class="s">Yellow: streaming now</span><span>Gray: not streaming or no data yet</span>`;
-  $("#stripNote2").textContent = `Each bar's height is the number of ${noun2} released that year. The yellow part is how many you can stream right now on a service in India, the US, the UK, Canada, Australia or the title's home country; the gray part is the rest. Hover over a bar for exact numbers, or click it to open that year.`;
+  document.querySelector(".strip-legend").innerHTML = `<span class="s">Streaming now</span><span>No streaming data</span>`;
+  $("#stripNote2").textContent = `Each bar's height is the number of ${noun2} released that year. The lower part shows how many you can stream right now on a service in India, the US, the UK, Canada, Australia or the title's home country; the upper part shows titles with no streaming data. Hover over a bar for exact numbers, or click it to open that year.`;
   for (let y = first; y <= last; y++){
     const d = byYear[y] || {films:0, streaming:0};
     const b = document.createElement("button");
     b.className = "yr" + ((span <= 40 ? y % 5 === 0 : y % 10 === 0) ? " decade" : "") + (d.streaming ? " has-stream" : "");
     b.dataset.y = y; b.style.width = barW + "px"; b.style.height = Math.max(3, Math.round(170 * d.films / max)) + "px";
     if (d.streaming) b.style.setProperty("--s", Math.round(100 * d.streaming / d.films) + "%");
-    const tipText = `${y}: ${d.films.toLocaleString()} ${kind === "series" ? "web series" : "films"} · ${d.streaming.toLocaleString()} streaming now (yellow) · ${(d.films - d.streaming).toLocaleString()} not streaming (gray)`;
+    const tipText = `${y}: ${d.films.toLocaleString()} ${kind === "series" ? "web series" : "films"} · ${d.streaming.toLocaleString()} streaming now · ${(d.films - d.streaming).toLocaleString()} no streaming data`;
     b.setAttribute("role","listitem"); b.setAttribute("aria-label", tipText);
     b.onclick = () => go(`#/i/${slug}${sPath}/year/${y}`);
-    b.onmouseenter = e => { tip.textContent = tipText; tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; tip.style.opacity = 1; };
+    b.onmouseenter = e => { tip.textContent = tipText; tip.style.transform = e.clientX > innerWidth - 340 ? "translate(-100%,-130%)" : e.clientX < 340 ? "translate(0,-130%)" : ""; tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; tip.style.opacity = 1; };
     b.onmousemove = e => { tip.style.left = e.clientX+"px"; tip.style.top = e.clientY+"px"; };
     b.onmouseleave = () => tip.style.opacity = 0;
     strip.appendChild(b);
@@ -548,7 +548,6 @@ function filterSql(o, p = "", start = 1){
   const parts = [], args = []; let n = start;
   const arg = v => { args.push(v); return `?${n++}`; };
   const exact = `(${p}release_date is not null and substr(${p}release_date, 6) <> '01-01')`;
-  if (o.fmt) parts.push(`${p}type = ${arg(o.fmt)}`);
   if (o.genre) parts.push(o.genre === "War" ? `(${p}genre like ${arg("%war film%")} or ${p}genre like ${arg("War%")} or ${p}genre like ${arg("%, War%")})` : `${p}genre like ${arg("%" + (GENRE_MATCH[o.genre] || o.genre) + "%")}`);
   if (o.avail === "stream") parts.push(`(${p}streaming_in is not null or ${p}streaming_us is not null or ${p}watch_regions like '%"s":[%')`);
   if (o.avail === "in") parts.push(`${p}streaming_in is not null`);
@@ -579,7 +578,6 @@ function filterFields(o, { series = false, dateFrom = "", dateTo = "", undatedOn
   return `
       <label>From date <input class="field" name="dfrom" type="date" min="1880-01-01" max="2100-12-31" value="${esc(o.dfrom || dateFrom)}"></label>
       <label>To date <input class="field" name="dto" type="date" min="1880-01-01" max="2100-12-31" value="${esc(o.dto || dateTo)}"></label>
-      ${series ? "" : `<label>Format <select class="field" name="fmt">${optList(FORMATS, o.fmt)}</select></label>`}
       <label>Genre <select class="field" name="genre"><option value="">All genres</option>${GENRES.map(g => `<option ${g === o.genre ? "selected" : ""}>${g}</option>`).join("")}</select></label>
       <label>Where to watch <select class="field" name="avail">${optList(AVAIL, o.avail)}</select></label>
       <label>Rating <select class="field" name="minr">${optList(MINR, o.minr)}</select></label>
@@ -587,14 +585,14 @@ function filterFields(o, { series = false, dateFrom = "", dateTo = "", undatedOn
 }
 function readFilters(form){
   const v = k => form[k] ? form[k].value : "";
-  return { dfrom: v("dfrom"), dto: v("dto"), fmt: v("fmt"), genre: v("genre"), avail: v("avail"), minr: v("minr"),
+  return { dfrom: v("dfrom"), dto: v("dto"), genre: v("genre"), avail: v("avail"), minr: v("minr"),
            sort: v("sort"), undated: form.undated && !form.undated.checked ? "0" : "" };
 }
 function describeFilters(o){
   const bits = [];
   const fmt = d => new Date(d + "T00:00").toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   if (isDate(o.dfrom) || isDate(o.dto)) bits.push(`${isDate(o.dfrom) ? fmt(o.dfrom) : "the start"} to ${isDate(o.dto) ? fmt(o.dto) : "today"}`);
-  if (o.fmt) bits.push(FORMATS[o.fmt]); if (o.genre) bits.push(o.genre); if (o.avail) bits.push(AVAIL[o.avail]); if (o.minr) bits.push(MINR[o.minr]);
+  if (o.genre) bits.push(o.genre); if (o.avail) bits.push(AVAIL[o.avail]); if (o.minr) bits.push(MINR[o.minr]);
   if (o.undated === "0") bits.push("exact dates only");
   return bits.length ? `Filtered: ${bits.map(esc).join(" · ")}` : "";
 }
@@ -633,7 +631,7 @@ async function viewList(slug, from, to, opts, kind = "film"){
   const sort = SORTS[opts.sort] ? opts.sort : "date";
   const name = indBySlug[slug].name.replace(/ cinema$/,""), noun = isS ? "web series" : "films";
   const single = from === to;
-  const keep = o => ({ dfrom: o.dfrom, dto: o.dto, fmt: o.fmt, genre: o.genre, avail: o.avail, minr: o.minr, sort: o.sort, undated: o.undated });
+  const keep = o => ({ dfrom: o.dfrom, dto: o.dto, genre: o.genre, avail: o.avail, minr: o.minr, sort: o.sort, undated: o.undated });
   const base = single ? `#/i/${slug}${sp}/year/${from}` : `#/i/${slug}${sp}/years/${from}-${to}`;
   const prev = single ? cur.years.filter(d=>d.year<from).pop() : null, next = single ? cur.years.find(d=>d.year>from) : null;
   const decade = Math.floor(from/10)*10;
@@ -641,7 +639,7 @@ async function viewList(slug, from, to, opts, kind = "film"){
   const total = inRange.reduce((a,b)=>a+b.films,0), streaming = inRange.reduce((a,b)=>a+b.streaming,0);
   $("#view").innerHTML = `
     <h2>${esc(name)} ${noun} ${single ? `of ${from}` : `${from}–${to}`}</h2>
-    <p class="sub">${total ? `${total.toLocaleString()} ${noun} · ${streaming.toLocaleString()} streaming now · ${(total - streaming).toLocaleString()} not streaming` : `No ${noun} recorded in this time frame.`}</p>
+    <p class="sub">${total ? `${total.toLocaleString()} ${noun} · ${streaming.toLocaleString()} streaming now · ${(total - streaming).toLocaleString()} no streaming data` : `No ${noun} recorded in this time frame.`}</p>
     <div class="row-nav">
       ${prev ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${prev.year}`, { sort: opts.sort })}">← ${prev.year}</a>` : ""}
       ${next ? `<a class="chip" href="${hashWith(`#/i/${slug}${sp}/year/${next.year}`, { sort: opts.sort })}">${next.year} →</a>` : ""}
@@ -984,8 +982,7 @@ $("#authForm").addEventListener("submit", async e => {
 sb.auth.onAuthStateChange((_e, session) => { const was = user?.id; user = session?.user ?? null; renderAcct(); if (was !== user?.id) route(); });
 
 /* ---------- chat assistant ---------- */
-const CHAT_API = /(^|\.)vercel\.app$|^localhost$/.test(location.hostname) && location.hostname !== "pujiverse.github.io"
-  ? "/api/chat" : "https://movies-pujiverse.vercel.app/api/chat";
+const CHAT_API = location.hostname.endsWith("github.io") ? "https://cinema.pujiverse.com/api/chat" : "/api/chat";
 const SUGGEST = ["Upcoming Telugu films this month", "Top rated Malayalam films of 2023", "Which films did S. S. Rajamouli direct?", "Korean web series on Netflix"];
 let chatMsgs = []; try { chatMsgs = JSON.parse(sessionStorage.getItem("pfChat") || "[]"); } catch { chatMsgs = []; }
 function md(text){
