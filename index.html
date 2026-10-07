@@ -288,6 +288,8 @@ async function tq(sql, args = []){
 }
 const safe = async (p) => { try { return { data: await p, error: null }; } catch (e) { return { data: null, error: e }; } };
 const $ = s => document.querySelector(s);
+/* small list thumbnails: TMDB w92, Commons ?width=, Wikipedia /NNNpx- */
+const thumb = u => u.replace("/w500/", "/w92/").replace(/([?&]width=)\d+/, "$1120").replace(/\/\d+px-([^/]+)$/, "/120px-$1");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const go = h => { location.hash = h; };
 const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>a+b.toUpperCase()) : s;
@@ -513,7 +515,7 @@ function filmRow(f, showInd, showYear){
   const badges = (upDays != null ? `<span class="badge soon">${upDays === 1 ? "Tomorrow" : upDays < 45 ? `In ${upDays} days` : "Coming soon"}</span>` : "")
     + (langs.length > 1 ? `<span class="badge" title="${esc(langs.join(", "))}">${langs.length} languages</span>` : "");
   return `<li>
-    ${f.poster_url ? `<img class="poster-sm" src="${esc(f.poster_url.replace("/w500/","/w92/"))}" alt="" loading="lazy">` : `<span class="poster-sm" aria-hidden="true"></span>`}
+    ${f.poster_url ? `<img class="poster-sm" src="${esc(thumb(f.poster_url))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'poster-sm'}))">` : `<span class="poster-sm" aria-hidden="true"></span>`}
     <div>
       <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(isQid(f.title) ? (tidy(f.title_local || f.original_title) || "Untitled") : tidy(f.title))}</a>
       ${local(f) ? ` <span class="te">${esc(local(f))}</span>` : ""}
@@ -888,7 +890,7 @@ async function viewFilm(id){
   const upcoming = f.release_date && f.release_date > TODAY;
   $("#view").innerHTML = `
   <article class="film">
-    <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
+    <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
     <div>
       <h1>${esc(tidy(f.title))}</h1>
       ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
