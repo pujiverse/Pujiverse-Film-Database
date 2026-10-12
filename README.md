@@ -26,6 +26,8 @@
 - **Where to watch, by country:** India, US, UK, Canada, Australia and the title's home country, split into Stream / Rent / Buy, with links that open a search for the title on each service. Every film page also has **Where to watch on Google**, **Search on Google** and **JustWatch** buttons (new tab), and list rows without data link straight to a Google where-to-watch search.
 - **Release calendar:** click any year on the bar chart and a month-by-month calendar appears above the list. Pick a month, then a day, to see everything released that day. Titles that only have a known year stay in the full list.
 - **Coming soon:** a site-wide upcoming page (`#/upcoming`) and a Coming soon tab on every industry, with a calendar, a month-by-month list, "In N days" badges and **Add to calendar** (.ics) buttons.
+- **OTT releases:** a page (`#/ott`) listing films and web series as they reach streaming, in two tabs (Coming to OTT, Recently on OTT) with an industry filter. Each row shows the movie, theatre release date, digital release date (with an "In N days" note), streaming partner, category (language, movie or web series, genre) and a **Trailer** button that opens a YouTube search for the trailer. Clicking a streaming service opens that service's own search for the title. Film pages also show the digital release date.
+- **Posters from free sources:** TMDB (any language's poster), Wikidata's "film poster" and image on Wikimedia Commons, and the Wikipedia article's infobox image. Titles with no poster get a title card instead of an empty box.
 - **Languages:** each film shows how many languages it's available in, combining TMDB's spoken languages with versions of the same film listed under other industries (for example a Telugu film also released in Tamil).
 - **Ask about any film:** a chat assistant that answers questions from the database itself. It writes read-only SQL against the Turso catalog through one tool, so answers come from your data, with links to each film.
 - **Light and dark mode, mobile layout, keyboard accessible.**
@@ -157,12 +159,24 @@ Run it every few weeks. It adds newly announced films and updates dates, stories
 
 ### 7. Automatic data refresh (GitHub Actions)
 
-Two scheduled workflows keep the catalog filling up and current without your computer:
+Two scheduled workflows keep the catalog current without your computer:
 
-- **Where to watch** (`.github/workflows/where-to-watch.yml`) runs daily for about five hours, checking titles TMDB hasn't covered yet and adding per-country streaming, rent and buy options, then refreshes the year-strip counts.
-- **Upcoming releases** (`.github/workflows/upcoming.yml`) runs every Monday.
+- **Daily update** (`.github/workflows/daily-update.yml`, every day at 04:23 UTC):
+  1. `tmdb_changes.py` asks TMDB which movies and shows changed in the last two days and refreshes the ones in the catalog (rating, votes, release date, genre, languages, where to watch).
+  2. `ott_dates.py` refreshes digital (OTT) release dates and streaming partners for films from the last 18 months and upcoming ones.
+  3. `fetch_upcoming.py` adds newly announced films for every industry and updates their dates.
+  4. Year-strip counts are recalculated.
+- **Weekly posters and where to watch** (`.github/workflows/weekly-posters.yml`, Sundays): `fill_posters.py` looks for posters for titles that still have none (Wikidata / Wikimedia Commons, TMDB, Wikipedia), then `enrich_watch.py` checks where to watch for titles never checked.
 
-Add three repository secrets in **GitHub → Settings → Secrets and variables → Actions**: `TURSO_URL`, `TURSO_TOKEN` (a **full-access** Turso token, used only here) and `TMDB_API_KEY`. Start either workflow right away from the **Actions** tab with **Run workflow**.
+Add three repository secrets in **GitHub → Settings → Secrets and variables → Actions**: `TURSO_URL`, `TURSO_TOKEN` (a **full-access** Turso token with no expiry, used only here) and `TMDB_API_KEY`. Start either workflow right away from the **Actions** tab with **Run workflow**.
+
+You can run the same scripts by hand:
+
+```bash
+python tmdb_changes.py --days 7          # catch up after a break (TMDB keeps up to 14 days of changes)
+python ott_dates.py --months 24
+python fill_posters.py collect --out posters && python fill_posters.py save --out posters
+```
 
 ## Security
 
@@ -189,7 +203,8 @@ TMDB's free developer key covers **non-commercial** use. Running ads, paid featu
 - **Thin coverage for smaller industries.** Chhattisgarhi, Rajasthani, Konkani and Nepali cinema are thinly covered on both Wikidata and Wikipedia.
 - **Some duplicates remain.** The same film can appear twice when sources spell it differently. Bilingual films may appear under two industries. Use "Report a duplicate".
 - **Years without exact dates.** Films with only a known year appear in that year's list without a day and month.
-- **Streaming availability changes weekly** and is only refreshed when the TMDB step is rerun.
+- **Streaming availability changes often.** The daily update refreshes titles TMDB reports as changed; others are rechecked by the weekly job.
+- **Digital release dates depend on TMDB.** Many Indian films have no OTT date on TMDB until they start streaming, so "Coming to OTT" is thinner than announcements in the press.
 
 ## Roadmap
 
