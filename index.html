@@ -67,6 +67,10 @@ h2{font:800 30px/1.1 var(--display);letter-spacing:-.02em;margin:0 0 4px}
 .te{font-family:var(--telugu);color:var(--muted);font-size:15px}
 .meta{color:var(--muted);font-size:15px}
 .poster-sm{width:56px;aspect-ratio:2/3;border-radius:4px;background:var(--turmeric-soft);object-fit:cover;display:block}
+span.poster-sm{display:grid;place-items:center;font:800 18px/1 var(--display);color:var(--ink);opacity:.75;overflow:hidden}
+.poster-ph{aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:var(--ink);overflow:hidden}
+.poster-ph b{font:800 clamp(20px,3vw,30px)/1.05 var(--display);overflow-wrap:anywhere}
+.poster-ph span{font:600 14px var(--body);opacity:.75;margin-top:6px}
 .where{font-size:14px;text-align:right;max-width:240px}
 .where b{display:inline-block;background:var(--turmeric-soft);color:var(--ink);padding:2px 8px;border-radius:4px;margin:2px 0 2px 4px;font-weight:600}
 .score{font:800 17px var(--display);color:var(--maroon)}
@@ -290,6 +294,7 @@ const safe = async (p) => { try { return { data: await p, error: null }; } catch
 const $ = s => document.querySelector(s);
 /* small list thumbnails: TMDB w92, Commons ?width=, Wikipedia /NNNpx- */
 const thumb = u => u.replace("/w500/", "/w92/").replace(/([?&]width=)\d+/, "$1120").replace(/\/\d+px-([^/]+)$/, "/120px-$1");
+const initial = t => (String(t || "").trim().match(/[\p{L}\p{N}]/u) || ["?"])[0].toUpperCase();
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const go = h => { location.hash = h; };
 const g = s => s ? s.replace(/ films?\b/g,"").replace(/(^|, )([a-z])/g,(m,a,b)=>a+b.toUpperCase()) : s;
@@ -515,7 +520,7 @@ function filmRow(f, showInd, showYear){
   const badges = (upDays != null ? `<span class="badge soon">${upDays === 1 ? "Tomorrow" : upDays < 45 ? `In ${upDays} days` : "Coming soon"}</span>` : "")
     + (langs.length > 1 ? `<span class="badge" title="${esc(langs.join(", "))}">${langs.length} languages</span>` : "");
   return `<li>
-    ${f.poster_url ? `<img class="poster-sm" src="${esc(thumb(f.poster_url))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'poster-sm'}))">` : `<span class="poster-sm" aria-hidden="true"></span>`}
+    ${f.poster_url ? `<img class="poster-sm" src="${esc(thumb(f.poster_url))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'poster-sm',textContent:'${esc(initial(f.title))}'}))">` : `<span class="poster-sm" aria-hidden="true">${esc(initial(f.title))}</span>`}
     <div>
       <a class="t" href="#/film/${encodeURIComponent(f.title_id)}">${esc(isQid(f.title) ? (tidy(f.title_local || f.original_title) || "Untitled") : tidy(f.title))}</a>
       ${local(f) ? ` <span class="te">${esc(local(f))}</span>` : ""}
@@ -890,7 +895,7 @@ async function viewFilm(id){
   const upcoming = f.release_date && f.release_date > TODAY;
   $("#view").innerHTML = `
   <article class="film">
-    <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="poster" style="aspect-ratio:2/3;background:var(--turmeric-soft);border-radius:8px"></div>`}</div>
+    <div>${f.poster_url ? `<img class="poster" src="${esc(f.poster_url)}" alt="Poster for ${esc(f.title)}" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="poster-ph" role="img" aria-label="No poster available"><b>${esc(f.title)}</b><span>${f.year ? esc(f.year) + " · " : ""}No poster yet</span></div>`}</div>
     <div>
       <h1>${esc(tidy(f.title))}</h1>
       ${local(f) ? `<p class="te">${esc(local(f))}</p>` : ""}
