@@ -11,6 +11,7 @@
 - **Industry picker:** 68 industries grouped into 7 regions, each with a film count and a sparkline of its output from 1900 to today.
 - **Year strip:** one bar per year for the selected industry. Click a bar to list that year's films; the lower part of each bar shows how many are streaming now.
 - **Time-frame browsing:** any year range (for example 1990–1999), or one click for a whole decade. Large ranges load 100 films at a time.
+- **Search and filters on every list:** year lists, decades, web series, search results, language pages, OTT releases and Coming soon all have a "search in this list" box (title, director or actor) and a **Streaming on** filter covering Netflix, Prime Video, Disney+, Max (HBO Max), Apple TV+, Paramount+, Peacock, Hulu, YouTube, Tubi, Pluto TV, The Roku Channel, JioHotstar, ZEE5, SonyLIV, aha, ETV Win, Sun NXT, Crunchyroll, MUBI and more.
 - **Filters and sorting:** exact date range (day, month and year), genre, where to watch (any country, India, US, or stream/rent/buy), minimum rating, and six sort orders (oldest or newest release date, most popular, highest rated, title A–Z or Z–A). Titles with an exact release date come first; titles that only have a year are listed after them under a "Date not known" divider, or can be hidden.
 - **Chart:** bar height is the number of titles released that year; the lower part ("Streaming now") is how many can be streamed in any tracked country and the upper part ("No streaming data") is the rest. Hovering over a bar shows both numbers.
 - **Ranked search across every industry:**
@@ -183,6 +184,10 @@ python fill_posters.py collect --out posters && python fill_posters.py save --ou
 ```
 
 ## Security
+
+- The site reads the catalog with a **read-only** Turso token; writes are rejected by the database itself. The full-access token lives only in GitHub Actions secrets.
+- Supabase tables use row-level security: visitors can read ratings and reviews (not who wrote them); only signed-in users can add or change their own rating.
+- The chat assistant runs read-only, single-statement SELECTs (no comments, balanced parentheses, 60-row cap) and is rate-limited per visitor. For extra protection, add a rate-limit rule in Vercel → Firewall and set a usage alert in Turso.
 
 - **Never commit** your Supabase **service role** key or your **TMDB** key. Keep them in `.env`, which `.gitignore` already excludes, or in environment variables.
 - Only the Supabase **publishable** key and the Turso **read-only** token belong in `index.html`. Never put a Turso full-access (read-write) token in the website.\n- Turso does not list tokens after creating them. To revoke a leaked token, use **Invalidate All Tokens** on the database page, then create a new read-only token and update `index.html`.

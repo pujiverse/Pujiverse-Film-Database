@@ -31,3 +31,7 @@ create policy "users add own rating"    on public.user_ratings for insert to aut
 create policy "users edit own rating"   on public.user_ratings for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "users delete own rating" on public.user_ratings for delete to authenticated using ((select auth.uid()) = user_id);
 create policy "users report duplicates" on public.duplicate_reports for insert to authenticated with check ((select auth.uid()) = reported_by);
+
+-- visitors who are not signed in can read ratings and reviews but not who wrote them
+revoke select on public.user_ratings from anon;
+grant select (id, title_id, story_rating, overall_rating, review, created_at) on public.user_ratings to anon;

@@ -20,14 +20,20 @@ INDIAN_LANGS = {INDUSTRY_LANG[s] for s in INDIAN} | {"Urdu"}
 COUNTRY = {**HOME, "hollywood": "US", "canada": "CA", "uk": "GB", "australia": "AU", "cuba": "CU", "iran": "IR", "bongowood": "TZ"}
 LANG_CODE_FIX = {"Mandarin": "zh", "Cantonese": "cn", "Odia": "or", "Tagalog": "tl", "Norwegian": "no", "Persian": "fa",
                  "Hebrew": "he", "Malay": "ms", "Bengali": "bn", "Tulu": "tcy", "Bhojpuri": "bho", "Konkani": "kok", "Manipuri": "mni"}
-# subscription / free services worth a row, in order of preference per market
+# streaming services worth a row (TMDB / JustWatch provider names), in order, per market
 SERVICES = {
-    "IN": ["Netflix", "Amazon Prime Video", "JioHotstar", "Zee5", "Sony Liv", "aha", "Sun Nxt", "Amazon MX Player"],
-    "US": ["Netflix", "Amazon Prime Video", "Disney Plus", "HBO Max", "Max", "Hulu", "Apple TV+", "Apple TV Plus", "Paramount Plus", "Peacock Premium"],
-    "*":  ["Netflix", "Amazon Prime Video", "Disney Plus", "HBO Max", "Max", "Apple TV+", "Apple TV Plus", "Viki", "iQIYI", "Viu",
-           "BBC iPlayer", "Canal+", "Movistar Plus+", "RaiPlay", "Globoplay", "Crunchyroll", "MUBI", "Showmax", "Shahid VIP", "Wavve", "TVING", "U-NEXT"],
+    "IN": ["Netflix", "Amazon Prime Video", "JioHotstar", "Zee5", "Sony Liv", "aha", "ETV Win", "Sun Nxt", "Apple TV", "YouTube",
+           "Tubi TV", "Crunchyroll", "MUBI", "ManoramaMax", "Amazon MX Player"],
+    "US": ["Netflix", "Amazon Prime Video", "Disney Plus", "HBO Max", "Max", "Apple TV", "Paramount Plus Premium", "Paramount Plus",
+           "Peacock Premium", "Hulu", "YouTube", "Tubi TV", "Pluto TV", "The Roku Channel", "Crunchyroll", "MUBI", "aha", "Sun Nxt"],
+    "*":  ["Netflix", "Amazon Prime Video", "Disney Plus", "HBO Max", "Max", "Apple TV", "Paramount Plus Premium", "Paramount Plus",
+           "YouTube", "Tubi TV", "Pluto TV", "Crunchyroll", "MUBI", "Viki", "iQIYI", "Viu", "BBC iPlayer", "ITVX", "Canal+", "Movistar Plus+",
+           "RaiPlay", "Globoplay", "Showmax", "Shahid VIP", "Wavve", "TVING", "Coupang Play", "U-NEXT", "Hulu", "Stan", "Crave"],
 }
-PER_REGION = 4
+DISPLAY = {"Amazon Prime Video": "Prime Video", "Disney Plus": "Disney+", "Apple TV": "Apple TV+", "Paramount Plus Premium": "Paramount+",
+           "Paramount Plus": "Paramount+", "Peacock Premium": "Peacock", "Tubi TV": "Tubi", "Zee5": "ZEE5", "Sony Liv": "SonyLIV",
+           "Sun Nxt": "Sun NXT", "ManoramaMax": "ManoramaMAX", "Max": "HBO Max"}
+PER_REGION = 16
 TOP = 10
 
 def providers(region):
@@ -38,7 +44,7 @@ def providers(region):
             have.setdefault(p["provider_name"], p["provider_id"])
     for name in SERVICES.get(region, []) + SERVICES["*"]:
         if name in have:
-            disp = PMAP.get(name, name.replace("Disney Plus", "Disney+").replace("Paramount Plus", "Paramount+").replace("Apple TV Plus", "Apple TV+"))
+            disp = DISPLAY.get(name, name)
             if disp not in seen.values(): seen[have[name]] = disp
         if len(seen) >= PER_REGION: break
     return list(seen.items())

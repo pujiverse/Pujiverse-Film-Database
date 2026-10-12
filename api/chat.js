@@ -48,6 +48,12 @@ function cleanSql(sql) {
   let s = String(sql || "").trim().replace(/;+\s*$/, "");
   if (!/^(select|with)\b/i.test(s)) throw new Error("Only SELECT queries are allowed.");
   if (s.includes(";")) throw new Error("Only one statement is allowed.");
+  const bare = s.replace(/'(?:[^']|'')*'/g, "''");          // ignore text inside string literals
+  if (/--|\/\*/.test(bare)) throw new Error("Comments are not allowed in queries.");
+  let depth = 0;
+  for (const ch of bare) { if (ch === "(") depth++; else if (ch === ")" && --depth < 0) break; }
+  if (depth !== 0) throw new Error("Unbalanced parentheses.");
+  if (/\bload_extension\b|\bfts5vocab\b/i.test(bare)) throw new Error("That function is not allowed.");
   if (/\b(insert|update|delete|drop|alter|create|attach|detach|pragma|vacuum|reindex)\b/i.test(s.replace(/'[^']*'/g, "''")))
     throw new Error("Only read-only queries are allowed.");
   return `select * from (${s}) limit ${ROW_LIMIT}`;
@@ -69,8 +75,12 @@ async function runSql(sql) {
       if (typeof v === "string" && v.length > 300) v = v.slice(0, 300) + "…";
       return [c.name, v];
     })));
-    let json = JSON.stringify({ rows: out, row_count: out.length });
-    if (json.length > MAX_RESULT_CHARS) json = json.slice(0, MAX_RESULT_CHARS) + '…(truncated)';
+    // keep the reply valid JSON: drop whole rows from the end until it fits
+    let keep = out.length, json = JSON.stringify({ rows: out, row_count: out.length });
+    while (json.length > MAX_RESULT_CHARS && keep > 1) {
+      keep = Math.max(1, Math.floor(keep * 0.8));
+      json = JSON.stringify({ rows: out.slice(0, keep), row_count: out.length, note: `only the first ${keep} of ${out.length} rows are shown; select fewer columns for more` });
+    }
     return json;
   } catch (e) {
     return JSON.stringify({ error: String(e.message || e) });
@@ -139,7 +149,7 @@ module.exports = async (req, res) => {
   if (!process.env.TURSO_URL || !process.env.TURSO_READ_TOKEN || !(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY))
     return res.status(503).json({ error: "The assistant isn't set up yet." });
 
-  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "anon";
+  const ip = (req.headers["x-vercel-forwarded-for"] || req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "anon";
   const now = Date.now(), recent = (hits.get(ip) || []).filter(t => now - t < 10 * 60 * 1000);
   if (recent.length >= 20) return res.status(429).json({ error: "Too many questions. Wait a few minutes and try again." });
   hits.set(ip, [...recent, now]);
