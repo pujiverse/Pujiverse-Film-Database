@@ -26,6 +26,8 @@
 - **Where to watch, by country:** India, US, UK, Canada, Australia and the title's home country, split into Stream / Rent / Buy, with links that open a search for the title on each service. Every film page also has **Where to watch on Google**, **Search on Google** and **JustWatch** buttons (new tab), and list rows without data link straight to a Google where-to-watch search.
 - **Release calendar:** click any year on the bar chart and a month-by-month calendar appears above the list. Pick a month, then a day, to see everything released that day. Titles that only have a known year stay in the full list.
 - **Coming soon:** a site-wide upcoming page (`#/upcoming`) and a Coming soon tab on every industry, with a calendar, a month-by-month list, "In N days" badges and **Add to calendar** (.ics) buttons.
+- **Browse by language** (`#/languages`): every language with its title count, and a page per language listing all films, web series and shorts available in it, both titles made in that language and ones dubbed into it. Dubbed titles carry a "Dubbed · original Tamil" style badge (or "Multi-language" when TMDB lists the language among a film's releases). Filter to original-language or dubbed titles only, and sort by popularity, date or title.
+- **Trending on streaming:** every industry page and language page shows the most popular titles right now on the main services in that market (for example Netflix, Prime Video, Zee5 and JioHotstar in India), as a ranked poster row per service. Ranking is TMDB popularity among titles streaming on that service (JustWatch data), refreshed daily; it is not the services' official top-10 lists.
 - **OTT releases:** a page (`#/ott`) listing films and web series as they reach streaming, in two tabs (Coming to OTT, Recently on OTT) with an industry filter. Each row shows the movie, theatre release date, digital release date (with an "In N days" note), streaming partner, category (language, movie or web series, genre) and a **Trailer** button that opens a YouTube search for the trailer. Clicking a streaming service opens that service's own search for the title. Film pages also show the digital release date.
 - **Posters from free sources:** TMDB (any language's poster), Wikidata's "film poster" and image on Wikimedia Commons, and the Wikipedia article's infobox image. Titles with no poster get a title card instead of an empty box.
 - **Languages:** each film shows how many languages it's available in, combining TMDB's spoken languages with versions of the same film listed under other industries (for example a Telugu film also released in Tamil).
@@ -165,7 +167,9 @@ Two scheduled workflows keep the catalog current without your computer:
   1. `tmdb_changes.py` asks TMDB which movies and shows changed in the last two days and refreshes the ones in the catalog (rating, votes, release date, genre, languages, where to watch).
   2. `ott_dates.py` refreshes digital (OTT) release dates and streaming partners for films from the last 18 months and upcoming ones.
   3. `fetch_upcoming.py` adds newly announced films for every industry and updates their dates.
-  4. Year-strip counts are recalculated.
+  4. `build_languages.py` rebuilds the language index (original and dubbed languages for every title).
+  5. `platform_trends.py` refreshes "Trending on streaming" for every industry and language.
+  6. Year-strip counts are recalculated.
 - **Weekly posters and where to watch** (`.github/workflows/weekly-posters.yml`, Sundays): `fill_posters.py` looks for posters for titles that still have none (Wikidata / Wikimedia Commons, TMDB, Wikipedia), then `enrich_watch.py` checks where to watch for titles never checked.
 
 Add three repository secrets in **GitHub → Settings → Secrets and variables → Actions**: `TURSO_URL`, `TURSO_TOKEN` (a **full-access** Turso token with no expiry, used only here) and `TMDB_API_KEY`. Start either workflow right away from the **Actions** tab with **Run workflow**.

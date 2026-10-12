@@ -215,6 +215,26 @@ footer p{max-width:80ch;margin:4px 0}
 }
 @media (max-width:620px){ header.top .search{flex:1 1 100%;order:5} header.top{gap:10px 18px} }
 
+
+/* trending on streaming */
+.trend{margin:0 0 34px}
+.trend .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.trend-row{display:grid;grid-auto-flow:column;grid-auto-columns:128px;gap:14px;overflow-x:auto;padding:10px 2px 10px 8px;scroll-snap-type:x proximity;list-style:none;margin:0}
+.trend-row li{scroll-snap-align:start}
+.trend-card{display:block;position:relative;text-decoration:none;color:var(--ink)}
+.trend-card img,.trend-card .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;display:block;background:var(--turmeric-soft)}
+.trend-card .ph{display:grid;place-items:center;font:800 34px var(--display);opacity:.8}
+.trend-card .rk{position:absolute;top:-8px;left:-6px;min-width:30px;height:30px;padding:0 6px;border-radius:999px;background:var(--ink);color:var(--screen);font:800 15px/30px var(--display);text-align:center}
+.trend-card b{display:block;font:700 14px/1.25 var(--display);margin-top:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.trend-card small{color:var(--muted);font-size:13px}
+.trend .note{font-size:13px;color:var(--muted);margin:6px 0 0}
+/* language pages */
+.lang-grid{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.lang-grid a{display:block;padding:14px 16px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);text-decoration:none}
+.lang-grid a:hover{border-color:var(--ink)}
+.lang-grid b{display:block;font:800 19px/1.2 var(--display)}
+.lang-grid small{color:var(--muted);font-size:13px}
+.badge.dub{background:var(--panel);border:1px solid var(--line)}
 /* OTT releases table */
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .ott{width:100%;border-collapse:collapse;font-size:15px}
@@ -249,6 +269,7 @@ footer p{max-width:80ch;margin:4px 0}
       <input name="q" id="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
     </form>
     <a class="nav-link" href="https://www.pujiverse.com/" title="Go to the official Pujiverse website">Pujiverse home</a>
+    <a class="nav-link" href="#/languages">Languages</a>
     <a class="nav-link" href="#/ott">OTT releases</a>
     <a class="nav-link" href="#/upcoming">Coming soon</a>
     <div class="acct" id="acct"></div>
@@ -558,7 +579,9 @@ function filmRow(f, showInd, showYear){
   const upDays = f.release_date && f.release_date > TODAY ? daysUntil(f.release_date) : null;
   const langs = langSet([f]);
   const badges = (upDays != null ? `<span class="badge soon">${upDays === 1 ? "Tomorrow" : upDays < 45 ? `In ${upDays} days` : "Coming soon"}</span>` : "")
-    + (langs.length > 1 ? `<span class="badge" title="${esc(langs.join(", "))}">${langs.length} languages</span>` : "");
+    + (langs.length > 1 ? `<span class="badge" title="${esc(langs.join(", "))}">${langs.length} languages</span>` : "")
+    + (f.via === "version" ? `<span class="badge dub" title="Dubbed version of a ${esc(f.orig_lang)} title">Dubbed · original ${esc(f.orig_lang)}</span>`
+      : f.via === "spoken" ? `<span class="badge dub" title="Released in several languages; the original is ${esc(f.orig_lang)}">Multi-language · original ${esc(f.orig_lang)}</span>` : "");
   return `<li>
     ${f.poster_url ? `<img class="poster-sm" src="${esc(thumb(f.poster_url))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'poster-sm',textContent:'${esc(initial(f.title))}'}))">` : `<span class="poster-sm" aria-hidden="true">${esc(initial(f.title))}</span>`}
     <div>
@@ -581,7 +604,8 @@ async function viewIndustry(slug){
       order by year desc, release_date desc nulls last limit 24`, [slug])));
     head = `Latest ${name} films`; sub = `Where-to-watch details for this industry are still being added.`;
   }
-  $("#view").innerHTML = `<h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
+  $("#view").innerHTML = `<div id="trend"></div><h2>${esc(head)}</h2><p class="sub">${esc(sub)}</p><ul class="films">${(data||[]).map(f=>filmRow(f)).join("")}</ul>`;
+  trendingSection($("#trend"), "industry", slug, name);
 }
 const PAGE = 100;
 const SORTS = { date: "Release date: oldest first", newest: "Release date: newest first", popular: "Most popular", rating: "Highest rated", title: "Title A–Z", titlez: "Title Z–A" };
@@ -850,6 +874,105 @@ async function viewUpcoming(slug, opts){
   await load();
 }
 
+
+/* ---------- trending on streaming (industry and language pages) ---------- */
+async function trendingSection(box, scope, key, label){
+  const { data } = await safe(tq(`select provider, region, rank, media, tmdb_id, title, year, poster, title_id, updated
+    from platform_trends where scope = ? and scope_key = ? order by provider_id, rank`, [scope, key]));
+  if (!box.isConnected || !data?.length) return;
+  const by = {}; for (const r of data) (by[r.provider] ||= []).push(r);
+  const provs = Object.keys(by).filter(p => by[p].length >= 3);
+  if (!provs.length) return;
+  const region = regionName(data[0].region), updated = data[0].updated;
+  let curP = provs[0];
+  const card = r => {
+    const href = r.title_id ? `#/film/${encodeURIComponent(r.title_id)}` : "https://www.google.com/search?q=" + encodeURIComponent(`${r.title} ${r.year || ""} ${r.media === "tv" ? "series" : "film"}`);
+    const ext = r.title_id ? "" : ` target="_blank" rel="noopener"`;
+    return `<li><a class="trend-card" href="${esc(href)}"${ext}><span class="rk">${r.rank}</span>
+      ${r.poster ? `<img src="${esc(r.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="ph">${esc(initial(r.title))}</span>`}
+      <b>${esc(r.title)}</b><small>${[r.year, r.media === "tv" ? "Series" : "Film"].filter(Boolean).join(" · ")}</small></a></li>`;
+  };
+  const draw = () => {
+    const q = encodeURIComponent(label);
+    box.innerHTML = `<section class="trend" aria-labelledby="trendH">
+      <h2 id="trendH">Trending on streaming</h2>
+      <p class="sub">The most popular ${esc(label)} titles right now on each service in ${esc(region)}.</p>
+      <div class="chips" role="tablist">${provs.map(p => `<button class="chip" role="tab" aria-pressed="${p === curP}" data-p="${esc(p)}">${esc(p)}</button>`).join("")}</div>
+      <ol class="trend-row">${by[curP].map(card).join("")}</ol>
+      <p class="note">Ranked by TMDB popularity among titles streaming on ${esc(curP)} (availability from JustWatch), updated ${esc(updated)}. Not the service's official top 10.
+        ${SEARCH_URL[curP] ? ` <a href="${esc(SEARCH_URL[curP](q))}" target="_blank" rel="noopener">Browse ${esc(label)} on ${esc(curP)} ↗</a>` : ""}</p></section>`;
+    box.querySelector(".chips").onclick = e => { const b = e.target.closest("button[data-p]"); if (b) { curP = b.dataset.p; draw(); } };
+  };
+  draw();
+}
+
+/* ---------- languages ---------- */
+const KINDS = { film: "Films", series: "Web series", other: "Shorts & others", all: "All" };
+const VERS = { "": "Original and dubbed", orig: "Original language only", dub: "Dubbed / multi-language only" };
+const LSORT = { popular: "Most popular", newest: "Newest first", oldest: "Oldest first", title: "Title A–Z" };
+async function viewLanguages(opts){
+  $("#stripSec").hidden = true; cur = { ind: null, years: [] };
+  $("#view").innerHTML = `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
+    <h2>Browse by language</h2>
+    <p class="sub">Every film and web series available in a language, whether it was made in that language or dubbed into it.</p>
+    <form class="filters" onsubmit="event.preventDefault()"><label>Find a language <input class="field" id="langQ" type="search" placeholder="Telugu, Korean, Spanish…" autocomplete="off"></label></form>
+    <ul class="lang-grid" id="langGrid"><li class="empty">Loading…</li></ul><div id="more"></div>`;
+  const { data, error } = await safe(tq(`select lang, sum(total) total, sum(original) original,
+      sum(case when kind = 'film' then total else 0 end) films, sum(case when kind = 'series' then total else 0 end) series
+    from language_stats group by lang order by total desc`));
+  if (error || !data) { $("#langGrid").innerHTML = `<li class="empty">Languages didn't load. Refresh to try again.</li>`; return; }
+  let showAll = opts.all === "1";
+  const draw = () => {
+    const q = $("#langQ").value.trim().toLowerCase();
+    const list = data.filter(l => q ? l.lang.toLowerCase().includes(q) : (showAll || l.total >= 25));
+    $("#langGrid").innerHTML = list.map(l => `<li><a href="#/lang/${encodeURIComponent(l.lang)}"><b>${esc(l.lang)}</b>
+      <small>${l.total.toLocaleString()} titles${l.series ? ` · ${l.series.toLocaleString()} series` : ""}${l.total - l.original ? ` · ${(l.total - l.original).toLocaleString()} dubbed` : ""}</small></a></li>`).join("")
+      || `<li class="empty">No language matches “${esc(q)}”.</li>`;
+    const hidden = data.length - data.filter(l => l.total >= 25).length;
+    $("#more").innerHTML = !q && !showAll && hidden ? `<button class="btn" id="allLangs">Show ${hidden} more languages with fewer titles</button>` : "";
+    const b = $("#allLangs"); if (b) b.onclick = () => { showAll = true; draw(); };
+  };
+  $("#langQ").oninput = draw; draw();
+}
+async function viewLanguage(lang, opts){
+  $("#stripSec").hidden = true; cur = { ind: null, years: [] }; await loadIndustries();
+  const kind = KINDS[opts.kind] ? opts.kind : "film", ver = VERS[opts.v] !== undefined ? (opts.v || "") : "", sort = LSORT[opts.sort] ? opts.sort : "popular";
+  const link = o => hashWith(`#/lang/${encodeURIComponent(lang)}`, { kind: kind === "film" ? "" : kind, v: ver, sort: sort === "popular" ? "" : sort, ...o });
+  const { data: st } = await safe(tq(`select kind, total, original from language_stats where lang = ?`, [lang]));
+  const tot = k => (st || []).filter(r => k === "all" || r.kind === k).reduce((a, r) => a + r.total, 0);
+  const dubbed = (st || []).reduce((a, r) => a + r.total - r.original, 0);
+  $("#view").innerHTML = `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a> / <a href="#/languages">Languages</a></p>
+    <h2>${esc(lang)}</h2>
+    <p class="sub">${tot("all").toLocaleString()} titles available in ${esc(lang)}${dubbed ? `, including ${dubbed.toLocaleString()} dubbed or multi-language releases of titles first made in another language` : ""}.</p>
+    <div id="trend"></div>
+    <div class="tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">${Object.entries(KINDS).map(([k, v]) =>
+      `<a class="chip" href="${link({ kind: k === "film" ? "" : k })}" aria-pressed="${k === kind}">${v} · ${tot(k).toLocaleString()}</a>`).join("")}</div>
+    <form class="filters" id="lf">
+      <label>Language version <select class="field" name="v">${optList(VERS, ver)}</select></label>
+      <label>Sort <select class="field" name="sort">${optList(LSORT, sort)}</select></label></form>
+    <p class="meta" id="lcount"></p><ul class="films" id="lList"></ul><div id="more"></div>`;
+  const f = $("#lf"); f.onchange = () => go(link({ v: f.v.value, sort: f.sort.value === "popular" ? "" : f.sort.value }));
+  trendingSection($("#trend"), "language", lang, lang);
+  const cols = LIST_COLS.split(",").map(c => "t." + c.trim()).join(",");
+  const where = ["l.lang = ?1"]; const args = [lang];
+  if (kind !== "all") { where.push("l.kind = ?2"); args.push(kind); } else { where.push("?2 is null"); args.push(null); }
+  if (ver === "orig") where.push("l.is_original = 1"); else if (ver === "dub") where.push("l.is_original = 0");
+  const order = { popular: "l.votes desc, l.release_date desc", newest: "l.release_date is null, l.release_date desc, l.year desc",
+                  oldest: "l.release_date is null, l.release_date asc, l.year asc", title: "t.title collate nocase" }[sort];
+  const { data: cnt } = await safe(tq(`select count(*) n from title_languages l where ${where.join(" and ")}`, args));
+  $("#lcount").textContent = cnt ? `${cnt[0].n.toLocaleString()} title${cnt[0].n === 1 ? "" : "s"}` : "";
+  let off = 0;
+  const load = async () => {
+    const { data, error } = await safe(tq(`select l.via, l.orig_lang, ${cols} from title_languages l join titles t on t.title_id = l.title_id
+      where ${where.join(" and ")} order by ${order} limit 100 offset ?3`, [...args, off]));
+    if (error) { $("#more").innerHTML = `<p class="empty">The list didn't load. Refresh to try again.</p>`; return; }
+    $("#lList").insertAdjacentHTML("beforeend", data.map(r => filmRow(r, true, true)).join(""));
+    off += data.length;
+    $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show 100 more</button>` : (off ? "" : `<p class="empty">Nothing here yet.</p>`);
+    const mb = $("#moreBtn"); if (mb) mb.onclick = load;
+  };
+  await load();
+}
 
 /* ---------- OTT releases ---------- */
 const OTT_COLS = "title_id,title,title_local,industry,type,year,release_date,digital_release_date,digital_country,genre,poster_url,streaming_in,streaming_us,watch_regions,network,tmdb_id,language";
@@ -1164,6 +1287,8 @@ async function route(){
   else if ((m = path.match(/^#\/i\/([\w-]+)\/upcoming\/?$/))) await viewUpcoming(m[1], opts);
   else if (path === "#/upcoming") await viewUpcoming(null, opts);
   else if (path === "#/ott") await viewOtt(opts);
+  else if (path === "#/languages") await viewLanguages(opts);
+  else if ((m = path.match(/^#\/lang\/(.+)$/))) await viewLanguage(decodeURIComponent(m[1]), opts);
   else if ((m = path.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
   else if ((m = path.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
   else if ((m = path.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]), opts);
