@@ -40,8 +40,9 @@ GOOD = 2   # titles already holding a poster of at least this rank are not searc
 def missing():
     rows, last = [], ""
     while True:
-        page = query("""select title_id, title, original_title, title_local, year, industry, type, tmdb_id, imdb_id from titles
-                        where (poster_url is null or poster_url = '') and title_id > ? order by title_id limit 5000""", [last])
+        page = query("""select title_id, title, original_title, title_local, year, industry, type, tmdb_id, imdb_id, poster_url from titles
+                        where (poster_url is null or poster_url = '' or poster_url like 'https://commons.wikimedia.org/%')
+                          and title_id > ? order by title_id limit 5000""", [last])
         if not page: return rows
         rows += page; last = page[-1]["title_id"]
         print(f"  catalog: {len(rows)} titles without a poster", end="\r", flush=True)
@@ -254,7 +255,8 @@ def tmdb_phase(rows, st, phase, threads):
             "tmdb-search": lambda r: not r.get("tmdb_id") and not r.get("imdb_id")}[phase]
     todo = [r for r in rows if pick(r) and not st.has_good(r["title_id"]) and (phase, r["title_id"]) not in st.done]
     print(f"\n{phase}: {len(todo)} titles", flush=True)
-    good = lambda: sum(1 for t in st.found.values() if t["source"] == "tmdb")
+    def good():
+        with LOCK: return sum(1 for t in list(st.found.values()) if t["source"] == "tmdb")
     before = good()
     with ThreadPoolExecutor(threads) as ex:
         for i, _ in enumerate(ex.map(lambda r: tmdb_one(r, phase, st), todo), 1):
@@ -262,15 +264,23 @@ def tmdb_phase(rows, st, phase, threads):
     print(f"{phase}: done, posters found {good() - before}", flush=True)
 
 # ---------- save ----------
-def save(st):
-    rows = list(st.found.values())
-    print(f"saving {len(rows)} posters", flush=True)
+def save(st, threads=6):
+    """Write found posters. Fills empty posters, and replaces a Commons photo when a real poster was found."""
+    have = {r["title_id"]: (r["poster_url"] or "") for r in missing()}   # titles with no poster or only a Commons image
+    rows = [r for r in st.found.values() if r["title_id"] in have and have[r["title_id"]] != r["poster_url"]
+            and (not have[r["title_id"]] or RANK.get(r["source"], 0) >= GOOD)]
+    print(f"\nsaving {len(rows)} posters", flush=True)
     sql = """update titles set poster_url = ?, tmdb_id = coalesce(tmdb_id, ?)
-             where title_id = ? and (poster_url is null or poster_url = '')"""
-    for i in range(0, len(rows), 300):
-        execute([(sql, [r["poster_url"], r.get("tmdb_id"), r["title_id"]]) for r in rows[i:i + 300]])
-        if i % 15000 == 0: print(f"  saved {i + len(rows[i:i + 300])}/{len(rows)}", flush=True)
-    print("saved", flush=True)
+             where title_id = ? and (poster_url is null or poster_url = '' or poster_url like 'https://commons.wikimedia.org/%')"""
+    chunks = [rows[i:i + 400] for i in range(0, len(rows), 400)]
+    done = [0]
+    def put(c):
+        execute([(sql, [r["poster_url"], r.get("tmdb_id"), r["title_id"]]) for r in c])
+        with LOCK:
+            done[0] += len(c)
+            if done[0] % 8000 < 400: print(f"  saved {done[0]}/{len(rows)}", flush=True)
+    with ThreadPoolExecutor(threads) as ex: list(ex.map(put, chunks))
+    print(f"saved {len(rows)}", flush=True)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
