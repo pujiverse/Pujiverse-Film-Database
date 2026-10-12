@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pujiverse Films — world cinema, year by year</title>
 <meta name="description" content="Films from 68 film industries, year by year, with where to watch and community ratings.">
+<meta name="google-adsense-account" content="ca-pub-3801443267872719">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3801443267872719" crossorigin="anonymous"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎞️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -297,6 +299,7 @@ footer p{max-width:80ch;margin:4px 0}
   <footer>
     <p>Film data from Wikidata (CC0) and Wikipedia (CC BY-SA). Posters, summaries and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability from JustWatch.</p>
     <p>Spotted a duplicate or a mistake? Open the film and use "Report a duplicate".</p>
+    <p><a href="#/privacy">Privacy and cookies</a> · <a href="https://www.pujiverse.com/">Pujiverse</a></p>
   </footer>
 </div>
 <div class="tip" id="tip" aria-hidden="true"></div>
@@ -1061,6 +1064,26 @@ async function viewLanguage(lang, opts){
   await load();
 }
 
+/* ---------- privacy ---------- */
+function viewPrivacy(){
+  $("#stripSec").hidden = true; cur = { ind: null, years: [] };
+  $("#view").innerHTML = `<article class="prose" style="max-width:760px">
+    <p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
+    <h2>Privacy and cookies</h2>
+    <p class="sub">Last updated ${new Date("2026-10-12T00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
+    <h3>Advertising</h3>
+    <p>Pujiverse Films shows ads served by Google AdSense. Google and its partners use cookies to serve ads based on your visits to this and other websites. Google's use of advertising cookies lets it and its partners serve ads to you based on those visits.</p>
+    <p>You can turn off personalised advertising in <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google's Ads Settings ↗</a>, or opt out of some third-party vendors' cookies at <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener">aboutads.info ↗</a>. Read <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">how Google uses information from sites that use its services ↗</a>.</p>
+    <h3>Accounts and ratings</h3>
+    <p>You can browse without an account. If you sign in, we store your email address (to sign you in) and the ratings and reviews you post, using Supabase. Reviews are shown publicly without your email or account id. You can remove your rating at any time from the film's page.</p>
+    <h3>Chat assistant</h3>
+    <p>Questions you type into "Ask about any film" are sent to Google's Gemini service to produce an answer, together with data from our film catalog. Don't type personal information into the chat. The conversation is kept only in your browser tab.</p>
+    <h3>What we don't do</h3>
+    <p>We don't sell personal information, and we don't use analytics trackers of our own. Film data comes from Wikidata, Wikipedia and TMDB; streaming availability comes from JustWatch.</p>
+    <h3>Contact</h3>
+    <p>For questions about this policy, contact us through <a href="https://www.pujiverse.com/" target="_blank" rel="noopener">pujiverse.com ↗</a>.</p></article>`;
+}
+
 /* ---------- OTT releases ---------- */
 const OTT_COLS = "title_id,title,title_local,industry,type,year,release_date,digital_release_date,digital_country,genre,poster_url,streaming_in,streaming_us,watch_regions,network,tmdb_id,language";
 const ytUrl = f => "https://www.youtube.com/results?search_query=" + encodeURIComponent(`${f.title} ${f.year || ""} trailer`.replace(/\s+/g, " ").trim());
@@ -1300,7 +1323,7 @@ function rateForm(m){
     <label>Story</label>${dots("story_rating", m?.story_rating)}
     <label for="rv">Review (optional)</label><textarea id="rv" name="review" rows="3" maxlength="2000">${esc(m?.review||"")}</textarea>
     <p class="msg" id="rateMsg" role="status"></p>
-    <div><button class="btn primary">${m ? "Update rating" : "Save rating"}</button></div>
+    <div><button class="btn primary">${m ? "Update rating" : "Save rating"}</button>${m ? ` <button type="button" class="linkbtn" id="rateDel">Remove my rating</button>` : ""}</div>
   </form>`;
 }
 function wireRateForm(id, mine){
@@ -1316,6 +1339,13 @@ function wireRateForm(id, mine){
     const row = { title_id:id, user_id:user.id, ...vals, review: $("#rv").value.trim() || null };
     const { error } = await sb.from("user_ratings").upsert(row, { onConflict:"title_id,user_id" });
     if (error) { $("#rateMsg").textContent = "Rating not saved: " + error.message; return; }
+    route();
+  };
+  const del = $("#rateDel");
+  if (del) del.onclick = async () => {
+    if (!confirm("Remove your rating and review for this title?")) return;
+    const { error } = await sb.from("user_ratings").delete().eq("title_id", id).eq("user_id", user.id);
+    if (error) { $("#rateMsg").textContent = "Rating not removed: " + error.message; return; }
     route();
   };
 }
@@ -1405,6 +1435,7 @@ async function route(){
   else if (path === "#/upcoming") await viewUpcoming(null, opts);
   else if (path === "#/ott") await viewOtt(opts);
   else if (path === "#/languages") await viewLanguages(opts);
+  else if (path === "#/privacy") viewPrivacy();
   else if ((m = path.match(/^#\/lang\/(.+)$/))) await viewLanguage(dec(m[1]), opts);
   else if ((m = path.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
   else if ((m = path.match(/^#\/film\/(.+)$/))) await viewFilm(dec(m[1]));
