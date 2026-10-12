@@ -226,6 +226,7 @@ footer p{max-width:80ch;margin:4px 0}
 .ott .when{white-space:nowrap}
 .ott .soon{display:block;font:600 12px var(--body);color:var(--maroon)}
 .ott .na{color:var(--muted)}
+.ott td.svc a{color:var(--ink);font-weight:600;text-decoration-color:var(--turmeric);text-decoration-thickness:2px;text-underline-offset:3px}
 .yt{display:inline-flex;align-items:center;gap:6px;font:600 13px var(--body);padding:6px 12px;border-radius:999px;border:1.5px solid var(--ink);color:var(--ink);text-decoration:none;white-space:nowrap}
 .yt:hover{background:var(--ink);color:var(--screen)}
 .yt svg{width:14px;height:14px}
@@ -389,8 +390,23 @@ const SEARCH_URL = {
   "Sony Liv": q => `https://www.sonyliv.com/search?searchTerm=${q}`, "SonyLIV": q => `https://www.sonyliv.com/search?searchTerm=${q}`,
   "MX Player": q => `https://www.mxplayer.in/search?q=${q}`, "Amazon Video": q => `https://www.amazon.com/s?k=${q}&i=instant-video`,
   "Apple TV Store": q => `https://tv.apple.com/search?term=${q}`, "Google Play Movies": q => `https://play.google.com/store/search?q=${q}&c=movies`,
-  "Fandango At Home": q => `https://athome.fandango.com/content/browse/search?searchString=${q}`
+  "Fandango At Home": q => `https://athome.fandango.com/content/browse/search?searchString=${q}`,
+  "Amazon MX Player": q => `https://www.mxplayer.in/search?q=${q}`, "Disney Plus": q => `https://www.disneyplus.com/search?q=${q}`,
+  "Disney+": q => `https://www.disneyplus.com/search?q=${q}`, "Crunchyroll": q => `https://www.crunchyroll.com/search?q=${q}`,
+  "JioCinema": q => `https://www.hotstar.com/in/explore?search_query=${q}`, "Hotstar": q => `https://www.hotstar.com/in/explore?search_query=${q}`,
+  "Sun NXT": q => `https://www.sunnxt.com/search?q=${q}`, "SunNXT": q => `https://www.sunnxt.com/search?q=${q}`,
+  "Hoichoi": q => `https://www.hoichoi.tv/search?q=${q}`, "Lionsgate Play": q => `https://www.lionsgateplay.com/search?q=${q}`,
+  "Rakuten Viki": q => `https://www.viki.com/search?q=${q}`, "Viki": q => `https://www.viki.com/search?q=${q}`,
+  "BritBox": q => `https://www.britbox.com/us/search?q=${q}`, "Shudder": q => `https://www.shudder.com/search?q=${q}`
 };
+/* a streaming service name as a link that opens the service's own search for the title (Google when we don't know its search page) */
+function serviceLinks(list, f){
+  const q = encodeURIComponent(tidy(f.title));
+  return [...new Set(String(list).split(", ").filter(Boolean).map(svc))].map(p => {
+    const href = SEARCH_URL[p] ? SEARCH_URL[p](q) : "https://www.google.com/search?q=" + encodeURIComponent(`${tidy(f.title)} ${f.year || ""} watch on ${p}`);
+    return `<a href="${esc(href)}" target="_blank" rel="noopener" title="Search ${esc(tidy(f.title))} on ${esc(p)}">${esc(p)}&nbsp;↗</a>`;
+  }).join(", ");
+}
 let regionNames; try { regionNames = new Intl.DisplayNames(["en"], { type: "region" }); } catch { regionNames = null; }
 const regionName = c => { try { return regionNames?.of(c) || c; } catch { return c; } };
 const googleUrl = (f, extra) => "https://www.google.com/search?q=" + encodeURIComponent([tidy(f.title), f.year, f.type === "series" ? "web series" : "film", extra].filter(Boolean).join(" "));
@@ -424,7 +440,7 @@ const svc = p => p.replace(/ (Amazon|Apple TV|Roku Premium) Channel$/,"").replac
 function watchChips(list, f, fallback){
   const q = encodeURIComponent(tidy(f.title));
   return [...new Set(list.split(", ").filter(Boolean).map(svc))].map(p => {
-    const href = SEARCH_URL[p] ? SEARCH_URL[p](q) : fallback;
+    const href = SEARCH_URL[p] ? SEARCH_URL[p](q) : fallback || "https://www.google.com/search?q=" + encodeURIComponent(`${tidy(f.title)} ${f.year || ""} watch on ${p}`);
     const chip = `<b style="display:inline-block;background:var(--turmeric-soft);padding:3px 10px;border-radius:4px;margin:3px 6px 3px 0;font-weight:600">${esc(p)}${href ? " ↗" : ""}</b>`;
     return href ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="text-decoration:none" title="Find ${esc(tidy(f.title))} on ${esc(p)}">${chip}</a>` : chip;
   }).join("");
@@ -891,7 +907,7 @@ async function viewOtt(opts){
         <span><a href="#/film/${encodeURIComponent(f.title_id)}">${esc(f.title)}</a>${f.title_local && f.title_local !== f.title ? `<br><small class="meta">${esc(f.title_local)}</small>` : ""}</span></td>
       <td data-l="Theatre release">${theatre ? esc(String(theatre)) : `<span class="na">Not known</span>`}</td>
       <td class="when" data-l="Digital release">${esc(fmt(f.d))}${days > 0 && days <= 30 ? `<span class="soon">${days === 1 ? "Tomorrow" : `In ${days} days`}</span>` : days === 0 ? `<span class="soon">Today</span>` : ""}</td>
-      <td data-l="Streaming on">${partner ? esc(partner) : `<span class="na">To be announced</span>`}</td>
+      <td data-l="Streaming on" class="svc">${partner ? serviceLinks(partner, f) : `<span class="na">To be announced</span>`}</td>
       <td data-l="Category">${esc(ottCategory(f))}</td>
       <td class="tr"><a class="yt" href="${ytUrl(f)}" target="_blank" rel="noopener" aria-label="Watch the ${esc(f.title)} trailer on YouTube">${YT_ICON}Trailer</a></td></tr>`;
   };
