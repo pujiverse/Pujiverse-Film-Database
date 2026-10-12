@@ -995,9 +995,15 @@ function ottCategory(f){
 }
 async function viewOtt(opts){
   $("#stripSec").hidden = true; cur = { ind: null, years: [] }; await loadIndustries();
-  const tab = opts.tab === "recent" ? "recent" : "soon", pick = opts.ind || "";
+  const tab = opts.tab === "recent" ? "recent" : "soon", pick = opts.ind || "", lang = opts.lang || "", year = /^\d{4}$/.test(opts.year || "") ? opts.year : "";
+  const state = { tab: tab === "soon" ? "" : tab, ind: pick, lang, year };
   const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i => i.region === r).map(i => `<option value="${i.slug}" ${pick === i.slug ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
-  const link = t => hashWith("#/ott", { tab: t === "soon" ? "" : t, ind: pick });
+  const [{ data: langs }, { data: yrs }] = await Promise.all([
+    safe(tq(`select lang from language_stats group by lang having sum(total) >= 50 order by lang`)),
+    safe(tq(`select distinct substr(digital_release_date, 1, 4) y from titles where digital_release_date is not null order by y desc`))]);
+  const thisYear = +TODAY.slice(0, 4);
+  const years = [...new Set([...(yrs || []).map(r => +r.y), thisYear, thisYear + 1])].filter(y => y >= 2000 && y <= thisYear + 2).sort((x, y) => y - x);
+  const link = t => hashWith("#/ott", { ...state, tab: t === "soon" ? "" : t });
   $("#view").innerHTML = `
     <p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
     <h2>OTT releases</h2>
@@ -1005,20 +1011,33 @@ async function viewOtt(opts){
     <div class="tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">
       <a class="chip" href="${link("soon")}" aria-pressed="${tab === "soon"}">Coming to OTT</a>
       <a class="chip" href="${link("recent")}" aria-pressed="${tab === "recent"}">Recently on OTT</a></div>
-    <form class="filters" id="ottForm"><label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label></form>
+    <form class="filters" id="ottForm">
+      <label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label>
+      <label>Language <select class="field" name="lang"><option value="">All languages</option>${(langs || []).map(l => `<option ${l.lang === lang ? "selected" : ""}>${esc(l.lang)}</option>`).join("")}</select></label>
+      <label>Year <select class="field" name="year"><option value="">${tab === "soon" ? "Next 12 months" : "Last 75 days"}</option>${years.map(y => `<option ${String(y) === year ? "selected" : ""}>${y}</option>`).join("")}</select></label>
+      ${pick || lang || year ? `<a class="btn" href="${hashWith("#/ott", { tab: state.tab })}" style="align-self:flex-end;text-decoration:none">Clear</a>` : ""}</form>
     <div id="ottList"><p class="empty">Loading…</p></div><div id="more"></div>`;
-  $("#ottForm").ind.onchange = e => go(hashWith("#/ott", { tab: tab === "soon" ? "" : tab, ind: e.target.value }));
-  const back = new Date(Date.now() - 75 * 864e5).toISOString().slice(0, 10), ahead = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
-  const indSql = pick ? "and industry = ?" : "";
+  const f = $("#ottForm");
+  f.onchange = () => go(hashWith("#/ott", { tab: state.tab, ind: f.ind.value, lang: f.lang.value, year: f.year.value }));
+  // date window: a chosen year, else the next 12 months / the last 75 days
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  let lo, hi;
+  if (tab === "soon") { lo = year ? (`${year}-01-01` > TODAY ? `${year}-01-01` : TODAY) : TODAY; hi = year ? `${year}-12-31` : day(365); }
+  else { lo = year ? `${year}-01-01` : day(-75); hi = year ? (`${year}-12-31` < TODAY ? `${year}-12-31` : day(-1)) : day(-1); }
   // movies use their digital date; web series premiere on OTT, so their first-air date is the digital date
-  const dsql = tab === "soon"
-    ? `select ${OTT_COLS}, digital_release_date as d from titles where type = 'movie' and digital_release_date >= ?1 and digital_release_date <= ?2 ${indSql.replace("?", "?3")}
-       union all select ${OTT_COLS}, release_date as d from titles where type = 'series' and release_date >= ?1 and release_date <= ?2 ${indSql.replace("?", "?3")}
-       order by d asc, title limit 100 offset ?4`
-    : `select ${OTT_COLS}, digital_release_date as d from titles where type = 'movie' and digital_release_date >= ?2 and digital_release_date < ?1 ${indSql.replace("?", "?3")}
-       union all select ${OTT_COLS}, release_date as d from titles where type = 'series' and release_date >= ?2 and release_date < ?1 ${indSql.replace("?", "?3")}
-       order by d desc, title limit 100 offset ?4`;
-  const base = tab === "soon" ? [TODAY, ahead] : [TODAY, back];
+  const args = [lo, hi]; let extra = "";
+  if (pick) { args.push(pick); extra += ` and t.industry = ?${args.length}`; }
+  // a title counts for a language when it, or another listing of the same film (same TMDB id), is in that language
+  if (lang) { args.push(lang); const n = args.length;
+    extra += ` and (t.title_id in (select title_id from title_languages where lang = ?${n})
+      or t.tmdb_id in (select r.tmdb_id from title_languages l join titles r on r.title_id = l.title_id where l.lang = ?${n} and r.tmdb_id is not null))`; }
+  const cols = OTT_COLS.split(",").map(c => "t." + c).join(",");
+  const offN = args.length + 1;
+  const sql = `select ${cols}, t.digital_release_date as d from titles t where t.type = 'movie' and t.digital_release_date between ?1 and ?2${extra}
+     union all select ${cols}, t.release_date as d from titles t where t.type = 'series' and t.release_date between ?1 and ?2${extra}
+     order by d ${tab === "soon" ? "asc" : "desc"}, title limit 100 offset ?${offN}`;
+  const emptyMsg = lo > hi ? `${year} has no ${tab === "soon" ? "upcoming" : "past"} dates. Try the other tab.`
+    : tab === "soon" ? "No OTT dates announced yet for this selection." : `Nothing reached OTT ${year ? `in ${year}` : "in the last 75 days"} for this selection.`;
   const seen = new Set(); let off = 0;
   const fmt = d => d ? new Date(d + "T00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
   const row = f => {
@@ -1035,15 +1054,14 @@ async function viewOtt(opts){
       <td class="tr"><a class="yt" href="${ytUrl(f)}" target="_blank" rel="noopener" aria-label="Watch the ${esc(f.title)} trailer on YouTube">${YT_ICON}Trailer</a></td></tr>`;
   };
   const load = async () => {
-    const args = pick ? [...base, pick, off] : [...base, null, off];
-    const sql = pick ? dsql : dsql.replace(/\?4/g, "?3").replace(/and industry = \?3/g, "");
-    const { data, error } = await safe(tq(sql, pick ? args : [...base, off]));
+    if (lo > hi) { $("#ottList").innerHTML = `<p class="empty">${esc(emptyMsg)}</p>`; return; }
+    const { data, error } = await safe(tq(sql, [...args, off]));
     if (error) { $("#ottList").innerHTML = `<p class="empty">The list didn't load. Refresh to try again.</p>`; return; }
     off += data.length;
     const fresh = data.filter(f => { const k = f.tmdb_id ? f.type + f.tmdb_id : f.title_id; if (seen.has(k)) return false; seen.add(k); return true; });
     if (off === data.length) $("#ottList").innerHTML = fresh.length
       ? `<table class="ott"><thead><tr><th>Movie / series</th><th>Theatre release</th><th>Digital release</th><th>Streaming on</th><th>Category</th><th><span class="sr-only">Trailer</span></th></tr></thead><tbody></tbody></table>`
-      : `<p class="empty">${tab === "soon" ? "No OTT dates announced yet for this selection." : "Nothing reached OTT in the last 75 days for this selection."}</p>`;
+      : `<p class="empty">${esc(emptyMsg)}</p>`;
     $("#ottList tbody")?.insertAdjacentHTML("beforeend", fresh.map(row).join(""));
     $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show more</button>` : "";
     const mb = $("#moreBtn"); if (mb) mb.onclick = load;
