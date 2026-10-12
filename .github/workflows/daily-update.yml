@@ -1,0 +1,46 @@
+# Keeps the catalog fresh every day:
+#   1. TMDB changes from the last 2 days (ratings, posters, release dates, where to watch)
+#   2. OTT / digital release dates for films from the last 18 months and upcoming
+#   3. New and upcoming films for every industry (next 12 months)
+#   4. Year-strip counts
+# Needs repository secrets TURSO_URL, TURSO_TOKEN (full access) and TMDB_API_KEY.
+name: Daily update
+
+on:
+  schedule:
+    - cron: "23 4 * * *"        # every day, 04:23 UTC (about 9:53 am India, 11:23 pm Central)
+  workflow_dispatch:             # "Run workflow" button in the Actions tab
+
+concurrency: { group: catalog-writes, cancel-in-progress: false }
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      TURSO_URL: ${{ secrets.TURSO_URL }}
+      TURSO_TOKEN: ${{ secrets.TURSO_TOKEN }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+    defaults: { run: { working-directory: pipeline } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - name: TMDB changes
+        run: python tmdb_changes.py --days 2
+      - name: OTT release dates
+        if: always()
+        run: python ott_dates.py --months 18
+      - name: New and upcoming films
+        if: always()
+        run: python fetch_upcoming.py --days 365 --max-pages 3
+      - name: Refresh year-strip counts
+        if: always()
+        run: |
+          python - <<'PY'
+          from turso_client import query, refresh_stats
+          for r in query("select slug from industries"):
+              refresh_stats(r["slug"])
+          print("year counts refreshed")
+          PY

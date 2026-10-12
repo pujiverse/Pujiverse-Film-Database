@@ -1,0 +1,38 @@
+# Once a week: posters for titles that still have none, from Wikidata / Wikimedia Commons, TMDB and Wikipedia,
+# then where-to-watch for titles never checked. Needs the same secrets as the daily update.
+name: Weekly posters and where to watch
+
+on:
+  schedule:
+    - cron: "41 7 * * 0"        # Sundays, 07:41 UTC
+  workflow_dispatch:
+
+concurrency: { group: catalog-writes, cancel-in-progress: false }
+
+jobs:
+  posters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    env:
+      TURSO_URL: ${{ secrets.TURSO_URL }}
+      TURSO_TOKEN: ${{ secrets.TURSO_TOKEN }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+    defaults: { run: { working-directory: pipeline } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - name: Find posters (Wikidata, TMDB)
+        run: |
+          for ph in wikidata tmdb-images tmdb-find tmdb-search; do
+            timeout 50m python fill_posters.py collect --out posters --only $ph || true
+          done
+      - name: Find posters (Wikipedia, up to 90 minutes)
+        run: timeout 90m python fill_posters.py collect --out posters --only wikipedia || true
+      - name: Save posters
+        if: always()
+        run: python fill_posters.py save --out posters
+      - name: Where to watch for titles never checked (up to 90 minutes)
+        if: always()
+        run: python enrich_watch.py --phase new --seconds 5400 --threads 16
