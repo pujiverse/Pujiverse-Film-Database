@@ -214,6 +214,29 @@ footer p{max-width:80ch;margin:4px 0}
   .film img.poster{max-width:220px}
 }
 @media (max-width:620px){ header.top .search{flex:1 1 100%;order:5} header.top{gap:10px 18px} }
+
+/* OTT releases table */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ott{width:100%;border-collapse:collapse;font-size:15px}
+.ott th{font:600 12px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1.5px solid var(--ink)}
+.ott td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.ott td.t{display:flex;gap:12px;align-items:center;min-width:220px}
+.ott td.t a{font:700 16px/1.2 var(--display);color:var(--ink);text-decoration:none}
+.ott td.t a:hover{text-decoration:underline}
+.ott .when{white-space:nowrap}
+.ott .soon{display:block;font:600 12px var(--body);color:var(--maroon)}
+.ott .na{color:var(--muted)}
+.yt{display:inline-flex;align-items:center;gap:6px;font:600 13px var(--body);padding:6px 12px;border-radius:999px;border:1.5px solid var(--ink);color:var(--ink);text-decoration:none;white-space:nowrap}
+.yt:hover{background:var(--ink);color:var(--screen)}
+.yt svg{width:14px;height:14px}
+@media (max-width:760px){
+  .ott thead{display:none}
+  .ott tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .ott td{border:0;padding:0}
+  .ott td.t{grid-column:1/-1;margin-bottom:6px}
+  .ott td[data-l]::before{content:attr(data-l);display:block;font:600 11px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .ott td.tr{grid-column:1/-1;margin-top:6px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -225,6 +248,7 @@ footer p{max-width:80ch;margin:4px 0}
       <input name="q" id="q" type="search" placeholder="Search any film, director or actor" aria-label="Search films">
     </form>
     <a class="nav-link" href="https://www.pujiverse.com/" title="Go to the official Pujiverse website">Pujiverse home</a>
+    <a class="nav-link" href="#/ott">OTT releases</a>
     <a class="nav-link" href="#/upcoming">Coming soon</a>
     <div class="acct" id="acct"></div>
   </header>
@@ -810,6 +834,84 @@ async function viewUpcoming(slug, opts){
   await load();
 }
 
+
+/* ---------- OTT releases ---------- */
+const OTT_COLS = "title_id,title,title_local,industry,type,year,release_date,digital_release_date,digital_country,genre,poster_url,streaming_in,streaming_us,watch_regions,network,tmdb_id,language";
+const ytUrl = f => "https://www.youtube.com/results?search_query=" + encodeURIComponent(`${f.title} ${f.year || ""} trailer`.replace(/\s+/g, " ").trim());
+const YT_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8ZM9.7 15.1V8.9L15.5 12l-5.8 3.1Z"/></svg>`;
+function ottPartner(f){
+  if (f.type === "series" && f.network) return f.network;
+  let reg = {}; try { reg = JSON.parse(f.watch_regions || "{}"); } catch {}
+  const first = [f.digital_country, "IN", "US"].map(c => c && reg[c]?.s?.length ? reg[c].s.join(", ") : null).find(Boolean)
+    || Object.values(reg).map(e => e.s?.join(", ")).find(Boolean);
+  return first || f.streaming_in || f.streaming_us || f.network || null;
+}
+function ottCategory(f){
+  const ind = indBySlug[f.industry];
+  let lang = f.language || "";
+  if (/^[a-z]{2,3}$/.test(lang)) { try { lang = new Intl.DisplayNames(["en"], { type: "language" }).of(lang) || lang; } catch {} }
+  if (!lang || lang === f.language && lang.length <= 3) lang = ind?.description?.match(/^(\S+) cinema/)?.[1] || ind?.name || "";
+  const g = (f.genre || "").split(",")[0].trim();
+  return [`${lang} ${f.type === "series" ? "web series" : "movie"}`.trim(), g].filter(Boolean).join(" · ");
+}
+async function viewOtt(opts){
+  $("#stripSec").hidden = true; cur = { ind: null, years: [] }; await loadIndustries();
+  const tab = opts.tab === "recent" ? "recent" : "soon", pick = opts.ind || "";
+  const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i => i.region === r).map(i => `<option value="${i.slug}" ${pick === i.slug ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
+  const link = t => hashWith("#/ott", { tab: t === "soon" ? "" : t, ind: pick });
+  $("#view").innerHTML = `
+    <p class="crumbs" style="margin-top:0"><a href="#/">All industries</a></p>
+    <h2>OTT releases</h2>
+    <p class="sub">When films and web series reach streaming: theatre date, digital date and where to watch. Dates come from TMDB and can change.</p>
+    <div class="tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">
+      <a class="chip" href="${link("soon")}" aria-pressed="${tab === "soon"}">Coming to OTT</a>
+      <a class="chip" href="${link("recent")}" aria-pressed="${tab === "recent"}">Recently on OTT</a></div>
+    <form class="filters" id="ottForm"><label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label></form>
+    <div id="ottList"><p class="empty">Loading…</p></div><div id="more"></div>`;
+  $("#ottForm").ind.onchange = e => go(hashWith("#/ott", { tab: tab === "soon" ? "" : tab, ind: e.target.value }));
+  const back = new Date(Date.now() - 75 * 864e5).toISOString().slice(0, 10), ahead = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
+  const indSql = pick ? "and industry = ?" : "";
+  // movies use their digital date; web series premiere on OTT, so their first-air date is the digital date
+  const dsql = tab === "soon"
+    ? `select ${OTT_COLS}, digital_release_date as d from titles where type = 'movie' and digital_release_date >= ?1 and digital_release_date <= ?2 ${indSql.replace("?", "?3")}
+       union all select ${OTT_COLS}, release_date as d from titles where type = 'series' and release_date >= ?1 and release_date <= ?2 ${indSql.replace("?", "?3")}
+       order by d asc, title limit 100 offset ?4`
+    : `select ${OTT_COLS}, digital_release_date as d from titles where type = 'movie' and digital_release_date >= ?2 and digital_release_date < ?1 ${indSql.replace("?", "?3")}
+       union all select ${OTT_COLS}, release_date as d from titles where type = 'series' and release_date >= ?2 and release_date < ?1 ${indSql.replace("?", "?3")}
+       order by d desc, title limit 100 offset ?4`;
+  const base = tab === "soon" ? [TODAY, ahead] : [TODAY, back];
+  const seen = new Set(); let off = 0;
+  const fmt = d => d ? new Date(d + "T00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+  const row = f => {
+    const days = Math.round((new Date(f.d + "T00:00") - new Date(TODAY + "T00:00")) / 864e5);
+    const partner = ottPartner(f);
+    const theatre = f.type === "series" ? "Direct to OTT" : (f.release_date && f.release_date === f.digital_release_date ? "Direct to OTT" : (realDate(f.release_date) ? fmt(f.release_date) : (f.year || null)));
+    return `<tr>
+      <td class="t"><a href="#/film/${encodeURIComponent(f.title_id)}" style="display:contents">${f.poster_url ? `<img class="poster-sm" src="${esc(thumb(f.poster_url))}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:44px">` : `<span class="poster-sm" style="width:44px" aria-hidden="true">${esc(initial(f.title))}</span>`}</a>
+        <span><a href="#/film/${encodeURIComponent(f.title_id)}">${esc(f.title)}</a>${f.title_local && f.title_local !== f.title ? `<br><small class="meta">${esc(f.title_local)}</small>` : ""}</span></td>
+      <td data-l="Theatre release">${theatre ? esc(String(theatre)) : `<span class="na">Not known</span>`}</td>
+      <td class="when" data-l="Digital release">${esc(fmt(f.d))}${days > 0 && days <= 30 ? `<span class="soon">${days === 1 ? "Tomorrow" : `In ${days} days`}</span>` : days === 0 ? `<span class="soon">Today</span>` : ""}</td>
+      <td data-l="Streaming on">${partner ? esc(partner) : `<span class="na">To be announced</span>`}</td>
+      <td data-l="Category">${esc(ottCategory(f))}</td>
+      <td class="tr"><a class="yt" href="${ytUrl(f)}" target="_blank" rel="noopener" aria-label="Watch the ${esc(f.title)} trailer on YouTube">${YT_ICON}Trailer</a></td></tr>`;
+  };
+  const load = async () => {
+    const args = pick ? [...base, pick, off] : [...base, null, off];
+    const sql = pick ? dsql : dsql.replace(/\?4/g, "?3").replace(/and industry = \?3/g, "");
+    const { data, error } = await safe(tq(sql, pick ? args : [...base, off]));
+    if (error) { $("#ottList").innerHTML = `<p class="empty">The list didn't load. Refresh to try again.</p>`; return; }
+    off += data.length;
+    const fresh = data.filter(f => { const k = f.tmdb_id ? f.type + f.tmdb_id : f.title_id; if (seen.has(k)) return false; seen.add(k); return true; });
+    if (off === data.length) $("#ottList").innerHTML = fresh.length
+      ? `<table class="ott"><thead><tr><th>Movie / series</th><th>Theatre release</th><th>Digital release</th><th>Streaming on</th><th>Category</th><th><span class="sr-only">Trailer</span></th></tr></thead><tbody></tbody></table>`
+      : `<p class="empty">${tab === "soon" ? "No OTT dates announced yet for this selection." : "Nothing reached OTT in the last 75 days for this selection."}</p>`;
+    $("#ottList tbody")?.insertAdjacentHTML("beforeend", fresh.map(row).join(""));
+    $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show more</button>` : "";
+    const mb = $("#moreBtn"); if (mb) mb.onclick = load;
+  };
+  await load();
+}
+
 async function viewSearch(term, opts){
   $("#stripSec").hidden = true; cur = { ind:null, years:[] }; await loadIndustries();
   $("#q").value = term;
@@ -903,7 +1005,7 @@ async function viewFilm(id){
       ${upcoming ? `<p style="margin:10px 0 0"><span class="badge soon" style="margin:0">Releases in ${daysUntil(f.release_date)} day${daysUntil(f.release_date) === 1 ? "" : "s"}</span> ${icsButton(f)}</p>` : ""}
       ${langs.length ? `<p style="margin:10px 0 0"><span class="badge" style="margin:0">Available in ${langs.length} language${langs.length === 1 ? "" : "s"}</span></p>` : ""}
       <dl class="facts">
-        ${fact("Industry", ind?.name)}${fact("Format", f.type === "series" ? "Web series" : null)}${fact("Network", f.network)}${fact("Seasons", f.seasons ? `${f.seasons} (${f.episodes || "?"} episodes)` : null)}${fact("Status", f.series_status)}${fact("Created by", f.creators)}${fact("Year", f.year ? String(f.year) : null)}
+        ${fact("Industry", ind?.name)}${fact("Format", f.type === "series" ? "Web series" : null)}${fact("Network", f.network)}${fact("Seasons", f.seasons ? `${f.seasons} (${f.episodes || "?"} episodes)` : null)}${fact("Status", f.series_status)}${fact("Created by", f.creators)}${fact("Year", f.year ? String(f.year) : null)}${fact("Digital release", f.digital_release_date ? new Date(f.digital_release_date + "T00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) + (f.digital_country ? ` (${f.digital_country})` : "") : null)}
         ${fact(f.type === "series" ? "Premiered" : "Released", realDate(f.release_date) ? new Date(f.release_date+"T00:00").toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}) : null)}
         ${fact("Director", f.director)}${fact("Cast", f.cast)}${fact("Genre", g(f.genre))}${fact(langs.length === 1 ? "Language" : "Languages", langs.join(", ") || null)}
         ${fact("Runtime", f.runtime_min ? f.runtime_min + " min" : null)}${fact("Production", f.production)}
@@ -1045,6 +1147,7 @@ async function route(){
   else if ((m = path.match(/^#\/i\/([\w-]+)\/series\/?$/))) await viewSeries(m[1]);
   else if ((m = path.match(/^#\/i\/([\w-]+)\/upcoming\/?$/))) await viewUpcoming(m[1], opts);
   else if (path === "#/upcoming") await viewUpcoming(null, opts);
+  else if (path === "#/ott") await viewOtt(opts);
   else if ((m = path.match(/^#\/i\/([\w-]+)\/?$/))) await viewIndustry(m[1]);
   else if ((m = path.match(/^#\/film\/(.+)$/))) await viewFilm(decodeURIComponent(m[1]));
   else if ((m = path.match(/^#\/search\/(.+)$/))) await viewSearch(decodeURIComponent(m[1]), opts);
