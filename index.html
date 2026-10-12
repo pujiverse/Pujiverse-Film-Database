@@ -229,6 +229,12 @@ footer p{max-width:80ch;margin:4px 0}
 .trend-card small{color:var(--muted);font-size:13px}
 .trend .note{font-size:13px;color:var(--muted);margin:6px 0 0}
 /* language pages */
+.ychart{display:flex;align-items:flex-end;gap:1px;height:110px;border-bottom:1.5px solid var(--ink)}
+.ychart a{flex:1;min-width:1px;background:var(--turmeric);border-radius:2px 2px 0 0;opacity:.85}
+.ychart a:hover,.ychart a.on{background:var(--maroon);opacity:1}
+.yticks{display:flex;gap:1px;font:600 11px var(--body);color:var(--muted)}
+.yticks span{flex:1;min-width:1px;white-space:nowrap;overflow:visible}
+
 .lang-grid{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .lang-grid a{display:block;padding:14px 16px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);text-decoration:none}
 .lang-grid a:hover{border-color:var(--ink)}
@@ -936,39 +942,84 @@ async function viewLanguages(opts){
 }
 async function viewLanguage(lang, opts){
   $("#stripSec").hidden = true; cur = { ind: null, years: [] }; await loadIndustries();
-  const kind = KINDS[opts.kind] ? opts.kind : "film", ver = VERS[opts.v] !== undefined ? (opts.v || "") : "", sort = LSORT[opts.sort] ? opts.sort : "popular";
-  const link = o => hashWith(`#/lang/${encodeURIComponent(lang)}`, { kind: kind === "film" ? "" : kind, v: ver, sort: sort === "popular" ? "" : sort, ...o });
-  const { data: st } = await safe(tq(`select kind, total, original from language_stats where lang = ?`, [lang]));
+  const kind = KINDS[opts.kind] ? opts.kind : "film", ver = VERS[opts.v] !== undefined ? (opts.v || "") : "";
+  const sort = SORTS[opts.sort] ? opts.sort : "popular", pick = opts.ind || "", qtext = (opts.q || "").trim();
+  const year = /^\d{4}$/.test(opts.year || "") ? opts.year : "";
+  const o = { dfrom: opts.dfrom || "", dto: opts.dto || "", genre: opts.genre || "", avail: opts.avail || "", minr: opts.minr || "", undated: opts.undated || "" };
+  if (year) { o.dfrom = `${year}-01-01`; o.dto = `${year}-12-31`; }
+  const state = { kind: kind === "film" ? "" : kind, v: ver, sort: sort === "popular" ? "" : sort, ind: pick, q: qtext, year, ...(year ? { genre: o.genre, avail: o.avail, minr: o.minr, undated: o.undated } : o) };
+  const link = x => hashWith(`#/lang/${encodeURIComponent(lang)}`, { ...state, ...x });
+  const [{ data: st }, { data: yc }] = await Promise.all([
+    safe(tq(`select kind, total, original from language_stats where lang = ?`, [lang])),
+    safe(tq(`select year, count(*) n from title_languages where lang = ?1 and (?2 = 'all' or kind = ?2) and year between 1890 and ?3 group by year order by year`,
+      [lang, kind, +TODAY.slice(0, 4) + 2]))]);
   const tot = k => (st || []).filter(r => k === "all" || r.kind === k).reduce((a, r) => a + r.total, 0);
   const dubbed = (st || []).reduce((a, r) => a + r.total - r.original, 0);
+  const thisYear = +TODAY.slice(0, 4);
+  const yearsList = (yc || []).map(r => r.year).reverse();
+  const indOpts = REGIONS.map(r => `<optgroup label="${esc(r)}">${industries.filter(i => i.region === r).map(i => `<option value="${i.slug}" ${pick === i.slug ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>`).join("");
+  // year chart: one bar per year, click to filter to that year
+  const maxN = Math.max(1, ...(yc || []).map(r => r.n));
+  const y0 = yc?.length ? yc[0].year : thisYear, y1 = yc?.length ? yc[yc.length - 1].year : thisYear;
+  const byY = Object.fromEntries((yc || []).map(r => [r.year, r.n]));
+  let bars = "", ticks = "";
+  for (let y = y0; y <= y1; y++) {
+    const n = byY[y] || 0;
+    bars += `<a href="${n ? link({ year: String(y) === year ? "" : String(y), dfrom: "", dto: "" }) : "#"}" class="${String(y) === year ? "on" : ""}" style="height:${n ? Math.max(3, Math.round(n / maxN * 100)) : 0}%" title="${y}: ${n.toLocaleString()} title${n === 1 ? "" : "s"}" aria-label="${y}: ${n} titles"${n ? "" : ` tabindex="-1" aria-hidden="true"`}></a>`;
+    ticks += `<span>${y % 10 === 0 ? y : ""}</span>`;
+  }
   $("#view").innerHTML = `<p class="crumbs" style="margin-top:0"><a href="#/">All industries</a> / <a href="#/languages">Languages</a></p>
     <h2>${esc(lang)}</h2>
     <p class="sub">${tot("all").toLocaleString()} titles available in ${esc(lang)}${dubbed ? `, including ${dubbed.toLocaleString()} dubbed or multi-language releases of titles first made in another language` : ""}.</p>
     <div id="trend"></div>
     <div class="tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">${Object.entries(KINDS).map(([k, v]) =>
       `<a class="chip" href="${link({ kind: k === "film" ? "" : k })}" aria-pressed="${k === kind}">${v} · ${tot(k).toLocaleString()}</a>`).join("")}</div>
+    ${yc?.length ? `<section class="ychart-wrap" aria-label="${esc(lang)} ${esc(KINDS[kind].toLowerCase())} per year">
+      <div class="ychart">${bars}</div><div class="yticks">${ticks}</div>
+      <p class="meta" style="margin:4px 0 16px">Each bar is one year. Click a bar to see that year${year ? `, or <a href="${link({ year: "" })}">show all years</a>` : ""}.</p></section>` : ""}
     <form class="filters" id="lf">
+      <label>Search in this list <input class="field" name="q" type="search" value="${esc(qtext)}" placeholder="Title…"></label>
+      <label>Year <select class="field" name="year"><option value="">All years</option>${yearsList.map(y => `<option ${String(y) === year ? "selected" : ""}>${y}</option>`).join("")}</select></label>
+      <label>Industry <select class="field" name="ind"><option value="">All industries</option>${indOpts}</select></label>
       <label>Language version <select class="field" name="v">${optList(VERS, ver)}</select></label>
-      <label>Sort <select class="field" name="sort">${optList(LSORT, sort)}</select></label></form>
+      <label>Sort <select class="field" name="sort">${optList(SORTS, sort)}</select></label>
+      ${year ? `<input type="hidden" name="dfrom" value=""><input type="hidden" name="dto" value="">
+        <label>Genre <select class="field" name="genre"><option value="">All genres</option>${GENRES.map(g => `<option ${g === o.genre ? "selected" : ""}>${g}</option>`).join("")}</select></label>
+        <label>Where to watch <select class="field" name="avail">${optList(AVAIL, o.avail)}</select></label>
+        <label>Rating <select class="field" name="minr">${optList(MINR, o.minr)}</select></label>
+        <label class="check"><input type="checkbox" name="undated" ${o.undated === "0" ? "" : "checked"}> Include titles with no exact date (listed last)</label>`
+      : filterFields(o, { undatedOn: o.undated !== "0" })}
+      <button class="btn primary" type="submit">Apply</button>
+      <a class="btn" href="${hashWith(`#/lang/${encodeURIComponent(lang)}`, { kind: state.kind })}" style="text-decoration:none">Clear</a></form>
     <p class="meta" id="lcount"></p><ul class="films" id="lList"></ul><div id="more"></div>`;
-  const f = $("#lf"); f.onchange = () => go(link({ v: f.v.value, sort: f.sort.value === "popular" ? "" : f.sort.value }));
+  const f = $("#lf");
+  const submit = () => { const r = readFilters(f);
+    go(link({ q: f.q.value.trim(), year: f.year.value, ind: f.ind.value, v: f.v.value, sort: f.sort.value === "popular" ? "" : f.sort.value,
+              dfrom: f.year.value ? "" : r.dfrom, dto: f.year.value ? "" : r.dto, genre: r.genre, avail: r.avail, minr: r.minr, undated: r.undated })); };
+  f.onsubmit = e => { e.preventDefault(); submit(); };
+  f.onchange = e => { if (e.target.name !== "q" && e.target.type !== "date") submit(); };
   trendingSection($("#trend"), "language", lang, lang);
   const cols = LIST_COLS.split(",").map(c => "t." + c.trim()).join(",");
-  const where = ["l.lang = ?1"]; const args = [lang];
-  if (kind !== "all") { where.push("l.kind = ?2"); args.push(kind); } else { where.push("?2 is null"); args.push(null); }
-  if (ver === "orig") where.push("l.is_original = 1"); else if (ver === "dub") where.push("l.is_original = 0");
-  const order = { popular: "l.votes desc, l.release_date desc", newest: "l.release_date is null, l.release_date desc, l.year desc",
-                  oldest: "l.release_date is null, l.release_date asc, l.year asc", title: "t.title collate nocase" }[sort];
-  const { data: cnt } = await safe(tq(`select count(*) n from title_languages l where ${where.join(" and ")}`, args));
-  $("#lcount").textContent = cnt ? `${cnt[0].n.toLocaleString()} title${cnt[0].n === 1 ? "" : "s"}` : "";
+  const base = `l.lang = ?1 and (?2 = 'all' or l.kind = ?2)`;
+  const fs = filterSql(o, "t.", 3);
+  let where = base + fs.sql; const args = [lang, kind, ...fs.args]; let n = fs.next;
+  if (ver === "orig") where += " and l.is_original = 1"; else if (ver === "dub") where += " and l.is_original = 0";
+  if (pick) { where += ` and t.industry = ?${n++}`; args.push(pick); }
+  if (qtext) { where += ` and (t.title like ?${n} or t.title_local like ?${n} or t.original_title like ?${n})`; args.push(`%${qtext}%`); n++; }
+  const order = orderSql(sort, "t.");
+  const { data: cnt } = await safe(tq(`select count(*) n from title_languages l join titles t on t.title_id = l.title_id where ${where}`, args));
+  const desc = [year ? `Year ${year}` : "", pick ? indBySlug[pick]?.name : "", qtext ? `“${qtext}”` : "", VERS[ver] && ver ? VERS[ver] : ""].filter(Boolean).map(esc);
+  const filt = describeFilters(year ? { ...o, dfrom: "", dto: "" } : o);
+  $("#lcount").innerHTML = cnt ? `${cnt[0].n.toLocaleString()} title${cnt[0].n === 1 ? "" : "s"}${desc.length ? " · " + desc.join(" · ") : ""}${filt ? " · " + filt : ""}` : "";
+  const rowState = { dateSort: sort === "date" || sort === "newest", dividerShown: false };
   let off = 0;
   const load = async () => {
     const { data, error } = await safe(tq(`select l.via, l.orig_lang, ${cols} from title_languages l join titles t on t.title_id = l.title_id
-      where ${where.join(" and ")} order by ${order} limit 100 offset ?3`, [...args, off]));
+      where ${where} order by ${order} limit 100 offset ?${n}`, [...args, off]));
     if (error) { $("#more").innerHTML = `<p class="empty">The list didn't load. Refresh to try again.</p>`; return; }
-    $("#lList").insertAdjacentHTML("beforeend", data.map(r => filmRow(r, true, true)).join(""));
+    $("#lList").insertAdjacentHTML("beforeend", rowsWithDivider(data, rowState, true, true));
     off += data.length;
-    $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show 100 more</button>` : (off ? "" : `<p class="empty">Nothing here yet.</p>`);
+    $("#more").innerHTML = data.length === 100 ? `<button class="btn" id="moreBtn">Show 100 more</button>` : (off ? "" : `<p class="empty">Nothing matches these filters.</p>`);
     const mb = $("#moreBtn"); if (mb) mb.onclick = load;
   };
   await load();
