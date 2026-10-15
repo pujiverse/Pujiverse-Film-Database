@@ -25,8 +25,18 @@ jobs:
       TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
     defaults: { run: { working-directory: pipeline } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - name: Check repository secrets
+        run: |
+          missing=""
+          [ -n "$TURSO_URL" ] || missing="$missing TURSO_URL"
+          [ -n "$TURSO_TOKEN" ] || missing="$missing TURSO_TOKEN"
+          [ -n "$TMDB_API_KEY" ] || missing="$missing TMDB_API_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing repository secrets::Add$missing in GitHub > Settings > Secrets and variables > Actions, then re-run this workflow."
+            exit 1
+          fi
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install requests
       - name: TMDB changes
