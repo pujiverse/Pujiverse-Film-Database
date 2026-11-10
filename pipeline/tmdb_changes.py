@@ -31,11 +31,15 @@ def ours(kind, ids):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--days", type=int, default=2); ap.add_argument("--threads", type=int, default=16)
     a = ap.parse_args()
-    end = datetime.date.today(); start = end - datetime.timedelta(days=min(a.days, 14))   # TMDB allows up to 14 days
+    end = datetime.date.today(); start = end - datetime.timedelta(days=max(1, a.days))
     total = 0
     for kind in ("movie", "tv"):
-        ids = changed_ids(kind, start.isoformat(), end.isoformat())
-        rows = ours(kind, ids)
+        # TMDB serves at most 500 pages per request (about 10 days of movie changes), so walk catch-ups in 7-day windows
+        ids, lo = set(), start
+        while lo < end:
+            hi = min(lo + datetime.timedelta(days=7), end)
+            ids |= set(changed_ids(kind, lo.isoformat(), hi.isoformat())); lo = hi
+        rows = ours(kind, sorted(ids))
         print(f"{kind}: {len(ids)} changed on TMDB since {start}, {len(rows)} of them in our catalog", flush=True)
         with ThreadPoolExecutor(a.threads) as ex:
             for i in range(0, len(rows), 400):

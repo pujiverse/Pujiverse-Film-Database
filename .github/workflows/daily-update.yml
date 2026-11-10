@@ -12,6 +12,10 @@ on:
   schedule:
     - cron: "23 4 * * *"        # every day, 04:23 UTC (about 9:53 am India, 11:23 pm Central)
   workflow_dispatch:             # "Run workflow" button in the Actions tab
+    inputs:
+      days:
+        description: "Days of TMDB changes to pull (2 normally; more to catch up after missed runs)"
+        default: "2"
 
 concurrency: { group: catalog-writes, cancel-in-progress: false }
 
@@ -40,7 +44,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install requests
       - name: TMDB changes
-        run: python tmdb_changes.py --days 2
+        run: python tmdb_changes.py --days ${{ github.event.inputs.days || '2' }}
       - name: OTT release dates
         if: always()
         run: python ott_dates.py --months 18
