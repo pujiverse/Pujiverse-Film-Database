@@ -84,6 +84,18 @@ def claim_ids(c, p, limit=None):
         if dv.get("type") == "wikibase-entityid": vals.append(dv["value"]["id"])
     return vals[:limit] if limit else vals
 
+def cast_ids(c, limit=15):
+    """P161 in billing order when the statements carry a 'series ordinal' (P1545) qualifier, else claim order."""
+    out = []
+    for i, s in enumerate(c.get("P161", [])):
+        dv = s.get("mainsnak", {}).get("datavalue", {})
+        if dv.get("type") != "wikibase-entityid": continue
+        o = next((q.get("datavalue", {}).get("value") for q in s.get("qualifiers", {}).get("P1545", [])), None)
+        try: o = int(o)
+        except (TypeError, ValueError): o = 10_000 + i
+        out.append((o, dv["value"]["id"]))
+    return [q for _, q in sorted(out)][:limit]
+
 def claim_str(c, p):
     for s in c.get(p, []):
         dv = s.get("mainsnak", {}).get("datavalue", {})
@@ -123,19 +135,19 @@ def pull(slug, expected=0):
     ids = list(dict.fromkeys(ids))
     ent_f = f"ents/{slug}.json"
     ents = json.load(open(ent_f)) if os.path.exists(ent_f) else {}
-    missing = [q for q in ids if q not in ents]
+    missing = [q for q in ids if q not in ents or "wiki" not in ents[q]]   # older cache entries lack sitelinks
     local = I[slug][4] or ""
     langs = "en|mul" + ("|" + local if local and len(local) == 2 else "")
     if missing:
         for i in range(0, len(missing), 1000):
-            got = get_entities(missing[i:i + 1000], langs=langs)
+            got = get_entities(missing[i:i + 1000], props="labels|claims|sitelinks", langs=langs)
             for q, e in got.items():   # keep only what we need, small cache
                 c = e.get("claims", {})
                 lab = e.get("labels", {})
                 ents[q] = {"en": (lab.get("en") or lab.get("mul") or {}).get("value"), "local": lab.get(local, {}).get("value") if local else None,
                            "orig": claim_str(c, "P1476"), "date": best_date(c), "runtime": claim_str(c, "P2047"),
                            "types": claim_ids(c, "P31"), "genre": claim_ids(c, "P136", 4), "dir": claim_ids(c, "P57", 3),
-                           "cast": claim_ids(c, "P161", 15), "lang": claim_ids(c, "P364", 3),
+                           "cast": cast_ids(c, 15), "wiki": len(e.get("sitelinks", {})), "lang": claim_ids(c, "P364", 3),
                            "imdb": claim_str(c, "P345"), "tmdb": claim_str(c, "P4947")}
             save_json(ents, ent_f)
     ref = [x for e in ents.values() for k in ("genre", "dir", "cast", "lang") for x in e[k]]
@@ -145,6 +157,9 @@ def pull(slug, expected=0):
     for q in ids:
         e = ents.get(q)
         if not e: continue
+        # Skip bare stubs: no Wikipedia article, no director, no cast, no IMDb/TMDB id. Bulk-created items like these
+        # (e.g. QuickStatements batch #256284, 2026-04) put people's names in the film title.
+        if not (e.get("wiki") or e["dir"] or e["cast"] or e["imdb"] or e["tmdb"]): continue
         y, d = e["date"]
         rt = e["runtime"]
         try: rt = round(float(rt)) if rt else None
